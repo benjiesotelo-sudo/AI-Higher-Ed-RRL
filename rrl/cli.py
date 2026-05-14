@@ -15,7 +15,11 @@ DEFAULT_LOG_DIR = Path("logs")
 @click.pass_context
 def main(ctx: click.Context, db: Path, verbose: bool) -> None:
     """RRL pipeline for AI-in-higher-ed literature."""
-    load_dotenv()
+    # Load .env from the current working directory only (not walking up the
+    # filesystem). override=True so values in .env take precedence over any
+    # stale value left in the shell environment (e.g., the .env.example
+    # placeholder). Tests that chdir to a tmp dir without a .env are unaffected.
+    load_dotenv(dotenv_path=Path(".env"), override=True)
     ctx.ensure_object(dict)
     ctx.obj["db"] = db
     ctx.obj["verbose"] = verbose
