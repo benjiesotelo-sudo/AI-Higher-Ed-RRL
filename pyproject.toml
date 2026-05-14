@@ -1,0 +1,37 @@
+[build-system]
+requires = ["setuptools>=68"]
+build-backend = "setuptools.build_meta"
+
+[project]
+name = "rrl"
+version = "0.1.0"
+description = "AI in Higher Education RRL collection pipeline"
+requires-python = ">=3.11"
+dependencies = [
+  "click>=8.1",
+  "requests>=2.31",
+  "urllib3>=2.0",
+  "openpyxl>=3.1",
+  "structlog>=24.1",
+  "rapidfuzz>=3.5",
+  "langdetect>=1.0",
+  "pyyaml>=6.0",
+  "python-dotenv>=1.0",
+]
+
+[project.optional-dependencies]
+dev = ["pytest>=8", "pytest-cov", "responses>=0.25", "ruff", "mypy"]
+
+[project.scripts]
+rrl = "rrl.cli:main"
+
+[tool.setuptools.packages.find]
+include = ["rrl*"]
+
+[tool.pytest.ini_options]
+testpaths = ["tests"]
+addopts = "-q"
+
+[tool.ruff]
+line-length = 100
+target-version = "py311"
