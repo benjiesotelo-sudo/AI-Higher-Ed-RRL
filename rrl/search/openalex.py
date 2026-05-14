@@ -20,13 +20,14 @@ def _decode_abstract(inverted: dict | None) -> str | None:
     return " ".join(w for _, w in positions) or None
 
 def _author_dict(authorship: dict) -> dict:
-    name = authorship.get("raw_author_name") or authorship.get("author", {}).get("display_name") or ""
+    author = authorship.get("author") or {}
+    name = authorship.get("raw_author_name") or author.get("display_name") or ""
     parts = name.rsplit(" ", 1)
     if len(parts) == 2:
         given, family = parts
     else:
         given, family = "", name
-    return {"family": family, "given": given, "orcid": authorship.get("author", {}).get("orcid")}
+    return {"family": family, "given": given, "orcid": author.get("orcid")}
 
 class OpenAlexAdapter:
     name = "openalex"
@@ -66,13 +67,15 @@ class OpenAlexAdapter:
 
     def _parse(self, w: dict) -> RawRecord:
         ext_id = w["id"].rsplit("/", 1)[-1]
+        primary_location = w.get("primary_location") or {}
+        source = primary_location.get("source") or {}
         return RawRecord(
             external_id=ext_id,
             doi=normalize_doi(w.get("doi")),
             title=w.get("title") or "",
-            authors=[_author_dict(a) for a in w.get("authorships", [])],
+            authors=[_author_dict(a) for a in (w.get("authorships") or [])],
             year=w.get("publication_year"),
-            venue=(w.get("primary_location") or {}).get("source", {}).get("display_name"),
+            venue=source.get("display_name"),
             abstract=_decode_abstract(w.get("abstract_inverted_index")),
             language=w.get("language"),
             raw_payload=w,
