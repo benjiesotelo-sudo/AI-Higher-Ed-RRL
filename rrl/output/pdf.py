@@ -30,6 +30,9 @@ def _log_attempt(conn, paper_id, source, url, status, content_type, n_bytes, out
 def _try_url(session, url, source, paper_id, conn, dest: Path) -> bool:
     try:
         r = session.get(url, timeout=60)
+    except requests.exceptions.Timeout as e:
+        _log_attempt(conn, paper_id, source, url, None, None, 0, "timeout", str(e))
+        return False
     except Exception as e:
         _log_attempt(conn, paper_id, source, url, None, None, 0, "http_error", str(e))
         return False
