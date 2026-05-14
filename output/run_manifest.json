@@ -1,0 +1,74 @@
+{
+  "schema_version": 1,
+  "pipeline_version": "0.1.0",
+  "run_id": "2fa63944-cbc5-4595-ad90-057c956f1ce4",
+  "run_at_utc": "2026-05-14T22:27:54.507256+00:00",
+  "query_terms": {
+    "ai_terms": [
+      "artificial intelligence",
+      "generative AI",
+      "generative artificial intelligence",
+      "GenAI",
+      "ChatGPT",
+      "GPT-3",
+      "GPT-3.5",
+      "GPT-4",
+      "GPT-4o",
+      "large language model",
+      "LLM",
+      "LLMs",
+      "Bard",
+      "Gemini",
+      "Claude",
+      "Copilot"
+    ],
+    "he_terms": [
+      "higher education",
+      "university",
+      "universities",
+      "college",
+      "colleges",
+      "undergraduate",
+      "postgraduate",
+      "graduate student",
+      "tertiary education",
+      "faculty",
+      "professor",
+      "instructor",
+      "lecturer",
+      "academia"
+    ],
+    "year_min": 2020,
+    "year_max": 2026
+  },
+  "query_terms_hash": "6fe20a37d069c57218b1fa3ac4cbaf4bcdc2833fe2bbf64321a60891f9da6a96",
+  "screen_rule_version": "v1",
+  "counts": {
+    "raw_records": 63298,
+    "papers_after_dedup": 62090,
+    "papers_after_screen_included": 516,
+    "papers_in_matrix": 420,
+    "pdfs_downloaded_cumulative": 420,
+    "pdfs_failed_cumulative": 96,
+    "high_confidence": 44,
+    "review_needed": 376,
+    "excluded_off_topic": 1024,
+    "excluded_not_oa": 37475,
+    "excluded_non_english": 4835,
+    "excluded_k12_only": 31,
+    "excluded_wrong_date": 0,
+    "post_chatgpt": 455,
+    "pre_chatgpt": 61,
+    "per_adapter": {
+      "eric": 16177,
+      "openalex": 6816,
+      "s2": 40305
+    }
+  },
+  "stage_runtimes_seconds": {
+    "export_pdf": 0.025253666997741675,
+    "export_matrix": 0.24049037499935366
+  },
+  "matrix_file": "rrl_matrix.xlsx",
+  "matrix_sha256": "839dbb1ce6e6feb249a0840f09ebec79a4be70d33202d8b7b403e9ce10669a8b"
+}

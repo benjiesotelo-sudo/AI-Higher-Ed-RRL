@@ -70,9 +70,50 @@ def test_book_chapter_requires_allowlisted_publisher():
     assert decide_quality_tier(bad) == "review_needed"
     assert decide_quality_tier(good) == "high_confidence"
 
+def test_book_chapter_allowlist_matches_publisher_variants():
+    # OpenAlex emits "Springer Science+Business Media" and similar imprint
+    # variants, not just "Springer Nature". Substring match should accept
+    # these as legitimate.
+    base = {"included": 1, "is_peer_reviewed": 1, "is_in_doaj": 0,
+            "work_type": "book-chapter", "k12_mixed": False}
+    for pub in [
+        "Springer Science+Business Media",
+        "Springer International Publishing",
+        "Springer Nature (Netherlands)",
+        "SAGE Publishing",
+        "Taylor & Francis Group",
+        "The MIT Press",
+    ]:
+        assert decide_quality_tier({**base, "publisher": pub}) == "high_confidence", pub
+    # But a non-academic-press still gets review_needed.
+    assert decide_quality_tier({**base, "publisher": "Atlantis Press"}) == "review_needed"
+    assert decide_quality_tier({**base, "publisher": ""}) == "review_needed"
+
 def test_predatory_publisher_forces_review_needed():
     p = {"included": 1, "is_peer_reviewed": 1, "is_in_doaj": 1,
          "work_type": "journal-article", "publisher": "OMICS International", "k12_mixed": False}
+    assert decide_quality_tier(p) == "review_needed"
+
+def test_null_work_type_with_peer_review_is_high_confidence():
+    # ERIC papers don't carry work_type/publisher in this pipeline, but
+    # ERIC's peerreviewed='T' is authoritative. A NULL work_type with a
+    # confirmed peer-review flag should NOT be demoted to review_needed.
+    p = {"included": 1, "is_peer_reviewed": 1, "is_in_doaj": 0,
+         "work_type": None, "publisher": None, "k12_mixed": False}
+    assert decide_quality_tier(p) == "high_confidence"
+
+def test_null_work_type_without_peer_review_is_review_needed():
+    # Same NULL work_type but no peer-review/DOAJ signal still warrants
+    # manual review.
+    p = {"included": 1, "is_peer_reviewed": 0, "is_in_doaj": 0,
+         "work_type": None, "publisher": None, "k12_mixed": False}
+    assert decide_quality_tier(p) == "review_needed"
+
+def test_explicit_non_article_work_type_still_demoted():
+    # NULL is treated as "metadata missing", but an explicit non-article
+    # work_type (e.g. "dataset", "report") still gets review_needed.
+    p = {"included": 1, "is_peer_reviewed": 1, "is_in_doaj": 1,
+         "work_type": "dataset", "publisher": "X", "k12_mixed": False}
     assert decide_quality_tier(p) == "review_needed"
 
 # --- Dean's stricter rules: peer-reviewed + empirical only ---

@@ -131,7 +131,33 @@ def evaluate_paper(p: dict) -> dict:
         "quality_tier": tier,
     }
 
+def _publisher_in_allowlist(publisher: str) -> bool:
+    """Match the academic-press allowlist against a publisher string with
+    substring semantics. OpenAlex emits per-imprint names like
+    "Springer Science+Business Media" and "Springer International Publishing"
+    rather than the bare "Springer Nature" — exact-match misses those, even
+    though they're the same publisher. Case-insensitive substring on either
+    side: an allowlist name appearing in the publisher string (e.g. "springer"
+    in "springer international publishing") is treated as a match.
+    """
+    if not publisher:
+        return False
+    p = publisher.lower()
+    return any(name.lower() in p for name in ACADEMIC_PRESS_ALLOWLIST)
+
+
 def decide_quality_tier(p: dict) -> str:
+    """Bucket a paper into high_confidence vs review_needed.
+
+    Note on NULL work_type: only OpenAlex sets work_type/publisher in this
+    pipeline; ERIC and S2 leave them NULL. Because the screen has already
+    enforced peer-review (dean's rule) and the methodology gate has already
+    excluded explicit non-empirical work types (editorial/letter/review/...),
+    a NULL work_type at this stage means "from a source without that
+    metadata" — not "of unknown nature". Treat it as acceptable here so
+    peer-reviewed ERIC papers can reach high_confidence on their own merit.
+    Truly suspect work types are the explicit ones; we still flag those.
+    """
     if p.get("k12_mixed") or p.get("cs_curriculum_signal"):
         return "review_needed"
     publisher = (p.get("publisher") or "").strip()
@@ -139,9 +165,9 @@ def decide_quality_tier(p: dict) -> str:
         return "review_needed"
     wt = p.get("work_type")
     if wt == "book-chapter":
-        if publisher not in ACADEMIC_PRESS_ALLOWLIST:
+        if not _publisher_in_allowlist(publisher):
             return "review_needed"
-    elif wt not in {"journal-article", "proceedings-article", "review"}:
+    elif wt is not None and wt not in {"journal-article", "proceedings-article", "review"}:
         return "review_needed"
     if not (p.get("is_peer_reviewed") == 1 or p.get("is_in_doaj") == 1):
         return "review_needed"

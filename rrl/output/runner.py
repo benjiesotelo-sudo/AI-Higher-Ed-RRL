@@ -23,6 +23,8 @@ def _counts(conn: sqlite3.Connection) -> dict:
                WHERE included = 1 AND pdf_status = 'downloaded'
                AND paper_id NOT IN (SELECT loser_id FROM paper_merges)"""
         ),
+        "pdfs_downloaded_cumulative": n("SELECT COUNT(*) FROM papers WHERE pdf_status='downloaded'"),
+        "pdfs_failed_cumulative": n("SELECT COUNT(*) FROM papers WHERE pdf_status='oa_link_dead'"),
         "high_confidence": n("SELECT COUNT(*) FROM papers WHERE quality_tier='high_confidence' AND pdf_status='downloaded' AND paper_id NOT IN (SELECT loser_id FROM paper_merges)"),
         "review_needed": n("SELECT COUNT(*) FROM papers WHERE quality_tier='review_needed' AND pdf_status='downloaded' AND paper_id NOT IN (SELECT loser_id FROM paper_merges)"),
         "excluded_off_topic": n("SELECT COUNT(*) FROM papers WHERE exclusion_reason='off_topic'"),
@@ -41,9 +43,11 @@ def _counts(conn: sqlite3.Connection) -> dict:
 
 def _format_appendix(counts: dict, runtimes: dict, run_at: str, pdf_summary: dict | None = None) -> str:
     per_adapter = counts.get("per_adapter", {})
-    pdf_summary = pdf_summary or {}
-    downloaded = pdf_summary.get("downloaded", 0)
-    failed = pdf_summary.get("failed", 0)
+    # Report cumulative PDF stats from the DB (counts dict) rather than just
+    # this run's attempts. Re-running export on an already-populated corpus
+    # otherwise prints "0 downloaded / 0 failed", which is misleading.
+    downloaded = counts.get("pdfs_downloaded_cumulative", 0)
+    failed = counts.get("pdfs_failed_cumulative", 0)
     rate = 100.0 * downloaded / max(downloaded + failed, 1)
     lines = [
         "## Run statistics",
