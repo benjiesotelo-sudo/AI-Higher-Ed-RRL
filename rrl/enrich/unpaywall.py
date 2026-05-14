@@ -71,8 +71,12 @@ def enrich_papers_with_unpaywall(conn: sqlite3.Connection, session: requests.Ses
             )
         else:
             if pdf:
+                # Unpaywall returning a PDF URL means the paper IS open access.
+                # Set is_oa=1 so the screen filter (which requires is_oa AND
+                # oa_pdf_url) doesn't reject papers we can actually download.
                 conn.execute(
                     """UPDATE papers SET oa_pdf_url=?, oa_status=COALESCE(?, oa_status),
+                       is_oa=1,
                        unpaywall_checked_at=datetime('now'),
                        last_updated_at=datetime('now') WHERE paper_id=?""",
                     (pdf, status, pid),
