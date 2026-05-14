@@ -60,8 +60,22 @@ def dedup(ctx, review, merge):
 @click.pass_context
 def enrich(ctx, only):
     """Attach DOAJ + Unpaywall + OpenAlex quality flags."""
-    click.echo("enrich: not yet implemented")
-    raise click.exceptions.Exit(2)
+    from rrl.db import connect, init_schema
+    from rrl.config import Settings
+    from rrl.http import build_session
+    from rrl.enrich.openalex_flags import enrich_from_openalex_payloads
+    from rrl.enrich.doaj import enrich_papers_with_doaj
+    from rrl.enrich.unpaywall import enrich_papers_with_unpaywall
+    settings = Settings.from_env()
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    sess = build_session(settings.openalex_email)
+    passes = (only or "openalex,doaj,unpaywall").split(",")
+    if "openalex" in passes:
+        s = enrich_from_openalex_payloads(conn); click.echo(f"openalex: {s}")
+    if "doaj" in passes:
+        s = enrich_papers_with_doaj(conn, sess); click.echo(f"doaj: {s}")
+    if "unpaywall" in passes:
+        s = enrich_papers_with_unpaywall(conn, sess, settings.openalex_email); click.echo(f"unpaywall: {s}")
 
 @main.command()
 @click.option("--dry-run", is_flag=True)
