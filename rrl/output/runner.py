@@ -14,7 +14,7 @@ from rrl.output.manifest import build_manifest, write_manifest
 def _counts(conn: sqlite3.Connection) -> dict:
     def n(sql: str, *a) -> int:
         return conn.execute(sql, a).fetchone()[0]
-    return {
+    result = {
         "raw_records": n("SELECT COUNT(*) FROM raw_records"),
         "papers_after_dedup": n("SELECT COUNT(*) FROM papers"),
         "papers_after_screen_included": n("SELECT COUNT(*) FROM papers WHERE included = 1"),
@@ -33,8 +33,18 @@ def _counts(conn: sqlite3.Connection) -> dict:
         "post_chatgpt": n("SELECT COUNT(*) FROM papers WHERE era_tag='post_chatgpt' AND included=1"),
         "pre_chatgpt":  n("SELECT COUNT(*) FROM papers WHERE era_tag='pre_chatgpt'  AND included=1"),
     }
+    per_adapter = dict(conn.execute(
+        "SELECT adapter, COALESCE(SUM(records_new), 0) FROM search_runs GROUP BY adapter"
+    ).fetchall())
+    result["per_adapter"] = per_adapter
+    return result
 
-def _format_appendix(counts: dict, runtimes: dict, run_at: str) -> str:
+def _format_appendix(counts: dict, runtimes: dict, run_at: str, pdf_summary: dict | None = None) -> str:
+    per_adapter = counts.get("per_adapter", {})
+    pdf_summary = pdf_summary or {}
+    downloaded = pdf_summary.get("downloaded", 0)
+    failed = pdf_summary.get("failed", 0)
+    rate = 100.0 * downloaded / max(downloaded + failed, 1)
     lines = [
         "## Run statistics",
         "",
@@ -63,6 +73,14 @@ def _format_appendix(counts: dict, runtimes: dict, run_at: str) -> str:
         "",
         "**Stage runtimes (seconds)**",
         *(f"- {k}: {v:.1f}" for k, v in runtimes.items()),
+        "",
+        "**By source adapter** _(records contributed before dedup)_",
+        *(f"- {adapter}: {n}" for adapter, n in sorted(per_adapter.items())),
+        "",
+        "**PDF download success**",
+        f"- downloaded: {downloaded}",
+        f"- failed: {failed}",
+        f"- success rate: {rate:.1f}%",
     ]
     return "\n".join(lines)
 
@@ -86,6 +104,6 @@ def run_export(db: Path, *, session: requests.Session, pdf_root: Path, matrix_pa
     manifest = build_manifest(counts=counts, runtimes=runtimes, matrix_path=matrix_path)
     write_manifest(manifest_path, manifest)
 
-    appendix = _format_appendix(counts, runtimes, manifest["run_at_utc"])
+    appendix = _format_appendix(counts, runtimes, manifest["run_at_utc"], pdf_summary=pdf_summary)
     update_appendix(readme_path, appendix)
     return {"pdfs": pdf_summary, "matrix": matrix_counts, "counts": counts}
