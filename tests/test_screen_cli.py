@@ -29,6 +29,18 @@ def test_screen_assigns_included_and_tier(tmp_path, monkeypatch):
     assert rows["p_offtopic"][2] == "off_topic"
     assert rows["p_old"][2] == "wrong_date"
 
+def test_screen_fills_in_language_via_langdetect(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path); monkeypatch.setenv("OPENALEX_EMAIL", "t@e.com")
+    conn = connect(tmp_path / "data/rrl.sqlite"); init_schema(conn)
+    _insert(conn, "p1", language=None, title="ChatGPT in higher education",
+            abstract="This study examines faculty adoption of ChatGPT in university classrooms.",
+            is_peer_reviewed=1, work_type="journal-article", publisher="J")
+    r = CliRunner().invoke(main, ["screen"])
+    assert r.exit_code == 0
+    row = conn.execute("SELECT included, language FROM papers WHERE paper_id='p1'").fetchone()
+    assert row["language"] == "en"  # filled in by langdetect
+    assert row["included"] == 1
+
 def test_screen_dry_run_does_not_write(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path); monkeypatch.setenv("OPENALEX_EMAIL", "t@e.com")
     conn = connect(tmp_path / "data/rrl.sqlite"); init_schema(conn)
