@@ -1,5 +1,6 @@
 """Harvest orchestration: run adapters, persist to raw_records + search_runs."""
 from __future__ import annotations
+import dataclasses
 import json
 import uuid
 from datetime import datetime, timezone
@@ -47,13 +48,16 @@ def _persist_record(conn, run_id: str, adapter: str, rec: RawRecord) -> bool:
     )
     return cur.rowcount > 0
 
-def harvest(db_path: Path, *, only: list[str] | None = None) -> dict:
+def harvest(db_path: Path, *, only: list[str] | None = None, since: str | None = None) -> dict:
     settings = Settings.from_env()
     configure_logging("harvest", Path("logs"))
     log = get_logger()
     conn = connect(db_path)
     init_schema(conn)
     spec = QuerySpec(ai_terms=AI_TERMS, he_terms=HE_TERMS, year_min=YEAR_MIN, year_max=YEAR_MAX)
+    if since is not None:
+        year_min = int(since.split("-")[0])
+        spec = dataclasses.replace(spec, year_min=year_min)
     qhash = query_hash(spec)
     counts: dict[str, int] = {}
     selected = only or list(ADAPTERS)
