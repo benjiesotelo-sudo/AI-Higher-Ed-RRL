@@ -28,7 +28,7 @@ def harvest(ctx, only, since):
     """Search OpenAlex / ERIC / Semantic Scholar; persist raw_records."""
     from rrl.harvest import harvest as run_harvest
     only_list = [a.strip() for a in only.split(",")] if only else None
-    counts = run_harvest(ctx.obj["db"], only=only_list)
+    counts = run_harvest(ctx.obj["db"], only=only_list, since=since)
     for adapter, n in counts.items():
         click.echo(f"{adapter}: {n} new records")
 
