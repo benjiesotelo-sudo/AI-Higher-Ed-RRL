@@ -113,20 +113,89 @@ def export(ctx, retry_failed):
     click.echo(json.dumps(summary, indent=2, default=str))
 
 @main.command(name="all")
-@click.option("--skip", default=None, help="Comma-separated stage names to skip")
+@click.option("--skip", default="", help="Comma-separated stage names to skip")
 @click.pass_context
 def run_all(ctx, skip):
     """Run all stages in order; resumable."""
-    click.echo("all: not yet implemented")
-    raise click.exceptions.Exit(2)
+    from rrl.config import Settings
+    from rrl.db import connect, init_schema
+    from rrl.http import build_session
+    skipped = {s.strip() for s in skip.split(",") if s.strip()}
+
+    if "harvest" not in skipped:
+        from rrl.harvest import harvest as run_harvest
+        click.echo("== harvest ==")
+        run_harvest(ctx.obj["db"])
+
+    db = ctx.obj["db"]
+    conn = connect(db); init_schema(conn)
+
+    if "dedup" not in skipped:
+        from rrl.dedup.grouping import run_dedup
+        click.echo("== dedup ==")
+        click.echo(run_dedup(conn))
+
+    if "enrich" not in skipped:
+        settings = Settings.from_env()
+        sess = build_session(settings.openalex_email)
+        from rrl.enrich.openalex_flags import enrich_from_openalex_payloads
+        from rrl.enrich.doaj import enrich_papers_with_doaj
+        from rrl.enrich.unpaywall import enrich_papers_with_unpaywall
+        click.echo("== enrich ==")
+        enrich_from_openalex_payloads(conn)
+        enrich_papers_with_doaj(conn, sess)
+        enrich_papers_with_unpaywall(conn, sess, settings.openalex_email)
+
+    if "screen" not in skipped:
+        from rrl.screen.runner import run_screen
+        click.echo("== screen ==")
+        click.echo(run_screen(conn))
+
+    if "export" not in skipped:
+        settings = Settings.from_env()
+        sess = build_session(settings.openalex_email)
+        from rrl.output.runner import run_export
+        click.echo("== export ==")
+        run_export(
+            db=db,
+            session=sess,
+            pdf_root=Path("pdfs"),
+            matrix_path=Path("output/rrl_matrix.xlsx"),
+            manifest_path=Path("output/run_manifest.json"),
+            readme_path=Path("README.md"),
+            core_api_key=settings.core_api_key,
+        )
 
 @main.command()
 @click.option("--paper", default=None, help="Show full lifecycle of one paper_id")
 @click.pass_context
 def status(ctx, paper):
     """Show per-stage counts and last-run timestamps."""
-    db: Path = ctx.obj["db"]
+    from rrl.db import connect, init_schema
+    db = ctx.obj["db"]
     if not db.exists():
         click.echo(f"No database at {db}. Run `rrl harvest` to create it.")
         return
-    click.echo(f"DB: {db}")
+    conn = connect(db); init_schema(conn)
+    if paper:
+        row = conn.execute("SELECT * FROM papers WHERE paper_id=?", (paper,)).fetchone()
+        if not row:
+            click.echo(f"No paper with id {paper}")
+            return
+        for k in row.keys():
+            click.echo(f"{k}: {row[k]}")
+        sources = conn.execute(
+            """SELECT rr.adapter, rr.external_id FROM paper_sources ps
+               JOIN raw_records rr ON rr.raw_id = ps.raw_id WHERE ps.paper_id=?""",
+            (paper,),
+        ).fetchall()
+        click.echo("sources: " + ", ".join(f"{s['adapter']}:{s['external_id']}" for s in sources))
+        return
+    n = lambda sql, *a: conn.execute(sql, a).fetchone()[0]
+    click.echo(f"raw_records: {n('SELECT COUNT(*) FROM raw_records')}")
+    click.echo(f"papers: {n('SELECT COUNT(*) FROM papers')}")
+    click.echo(f"papers included: {n('SELECT COUNT(*) FROM papers WHERE included = 1')}")
+    click.echo(f"papers downloaded: {n('SELECT COUNT(*) FROM papers WHERE pdf_status = ?', 'downloaded')}")
+    click.echo("search_runs:")
+    for r in conn.execute("SELECT adapter, status, finished_at, records_new FROM search_runs ORDER BY started_at DESC").fetchall():
+        click.echo(f"  {r['adapter']:<10} {r['status']:<7} {r['finished_at'] or '':<28} new={r['records_new']}")
