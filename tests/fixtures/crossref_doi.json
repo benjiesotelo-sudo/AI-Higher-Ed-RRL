@@ -1,0 +1,13 @@
+{
+  "message": {
+    "DOI": "10.1/zzz",
+    "title": ["A study of ChatGPT in higher education"],
+    "container-title": ["Journal of Higher Ed"],
+    "publisher": "Springer",
+    "type": "journal-article",
+    "issued": {"date-parts": [[2024]]},
+    "author": [{"given": "Mei", "family": "Wang", "ORCID": "http://orcid.org/0000-0000-0000-0001"}],
+    "language": "en",
+    "abstract": "<jats:p>An empirical study of faculty attitudes.</jats:p>"
+  }
+}
