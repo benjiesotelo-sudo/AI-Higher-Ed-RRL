@@ -61,3 +61,17 @@ def test_harvest_only_filter(tmp_path, monkeypatch, fixtures_dir):
     init_schema(conn)
     adapters = {r[0] for r in conn.execute("SELECT DISTINCT adapter FROM raw_records").fetchall()}
     assert adapters == {"openalex"}
+
+@responses.activate
+def test_harvest_since_overrides_year_min(tmp_path, monkeypatch, fixtures_dir):
+    monkeypatch.setenv("OPENALEX_EMAIL", "t@e.com")
+    monkeypatch.chdir(tmp_path)
+    _setup_responses(fixtures_dir)
+    r = CliRunner().invoke(main, ["harvest", "--since", "2024-06-01", "--only", "openalex"])
+    assert r.exit_code == 0, r.output
+    from rrl.db import connect, init_schema
+    conn = connect(tmp_path / "data/rrl.sqlite"); init_schema(conn)
+    import json
+    payload = conn.execute("SELECT query_payload FROM search_runs WHERE adapter='openalex'").fetchone()[0]
+    spec = json.loads(payload)["spec"]
+    assert spec["year_min"] == 2024
