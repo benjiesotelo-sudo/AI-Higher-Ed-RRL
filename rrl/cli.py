@@ -68,9 +68,11 @@ def enrich(ctx, only):
     from rrl.db import connect, init_schema
     from rrl.config import Settings
     from rrl.http import build_session
+    from rrl.logging_setup import configure_logging
     from rrl.enrich.openalex_flags import enrich_from_openalex_payloads
     from rrl.enrich.doaj import enrich_papers_with_doaj
     from rrl.enrich.unpaywall import enrich_papers_with_unpaywall
+    configure_logging("enrich", DEFAULT_LOG_DIR)
     settings = Settings.from_env()
     conn = connect(ctx.obj["db"]); init_schema(conn)
     sess = build_session(settings.openalex_email)

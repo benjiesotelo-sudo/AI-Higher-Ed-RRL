@@ -122,6 +122,10 @@ def connect(db_path: Path | str) -> sqlite3.Connection:
 def init_schema(conn: sqlite3.Connection) -> None:
     """Create tables/indices if missing. Idempotent."""
     conn.executescript(DDL)
+    cols = {r["name"] for r in conn.execute("PRAGMA table_info(papers)").fetchall()}
+    for col in ("unpaywall_checked_at", "doaj_checked_at"):
+        if col not in cols:
+            conn.execute(f"ALTER TABLE papers ADD COLUMN {col} TEXT")
     existing = conn.execute(
         "SELECT version FROM schema_version WHERE version=?", (SCHEMA_VERSION,)
     ).fetchone()
