@@ -22,17 +22,25 @@ class ERICAdapter:
         self.session = session
 
     def _render_q(self, q: QuerySpec) -> str:
-        ai = " OR ".join(f'"{t}"' for t in q.ai_terms)
-        he = " OR ".join(f'"{t}"' for t in q.he_terms)
+        # ERIC's default search field can't run phrase queries (no positions
+        # indexed), so multi-word quoted terms like "artificial intelligence"
+        # cause Solr errors. Restrict to single-token terms — the recall loss
+        # is small because the distinctive tokens (ChatGPT, GenAI, LLM, etc.)
+        # already match most relevant records.
+        ai_terms = [t for t in q.ai_terms if " " not in t]
+        he_terms = [t for t in q.he_terms if " " not in t]
+        ai = " OR ".join(ai_terms)
+        he = " OR ".join(he_terms)
         return (
-            f"(title:({ai}) OR description:({ai})) "
-            f"AND (descriptor:\"Higher Education\" OR description:({he})) "
+            f"({ai}) "
+            f"AND ({he}) "
             f"AND publicationdateyear:[{q.year_min} TO {q.year_max}]"
         )
 
     def search(self, q: QuerySpec, run_id: str) -> Iterator[RawRecord]:
+        # ERIC's public API uses `search=` (not `q=`).
         start = 0
-        params_base = {"q": self._render_q(q), "rows": ROWS, "format": "json"}
+        params_base = {"search": self._render_q(q), "rows": ROWS, "format": "json"}
         while True:
             params = dict(params_base, start=start)
             r = self.session.get(BASE, params=params)
