@@ -25,8 +25,11 @@ def main(ctx: click.Context, db: Path, verbose: bool) -> None:
 @click.pass_context
 def harvest(ctx, only, since):
     """Search OpenAlex / ERIC / Semantic Scholar; persist raw_records."""
-    click.echo("harvest: not yet implemented")
-    raise click.exceptions.Exit(2)
+    from rrl.harvest import harvest as run_harvest
+    only_list = [a.strip() for a in only.split(",")] if only else None
+    counts = run_harvest(ctx.obj["db"], only=only_list)
+    for adapter, n in counts.items():
+        click.echo(f"{adapter}: {n} new records")
 
 @main.command()
 @click.option("--review", is_flag=True, help="Write data/dedup_review.csv")
