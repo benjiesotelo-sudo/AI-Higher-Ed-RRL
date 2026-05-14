@@ -82,8 +82,12 @@ def enrich(ctx, only):
 @click.pass_context
 def screen(ctx, dry_run):
     """Apply topic/OA/quality filters; assign tier and era."""
-    click.echo("screen: not yet implemented")
-    raise click.exceptions.Exit(2)
+    from rrl.db import connect, init_schema
+    from rrl.screen.runner import run_screen
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    summary = run_screen(conn, dry_run=dry_run)
+    for k, v in sorted(summary.items()):
+        click.echo(f"{k}: {v}")
 
 @main.command()
 @click.option("--retry-failed", is_flag=True)
