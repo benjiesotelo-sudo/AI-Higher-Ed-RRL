@@ -1,6 +1,8 @@
 """PDF download with magic-byte validation, retries, and attempt logging."""
 from __future__ import annotations
+import logging
 import sqlite3
+import time
 from datetime import datetime, timezone
 from pathlib import Path
 
@@ -8,7 +10,10 @@ import requests
 
 from rrl.search.core_api import find_pdf_by_doi, find_pdf_by_title
 
+log = logging.getLogger(__name__)
+
 MIN_BYTES = 10 * 1024  # 10KB
+PROGRESS_INTERVAL = 25
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -57,8 +62,11 @@ def download_pdfs(conn: sqlite3.Connection, session: requests.Session, *,
     rows = conn.execute(
         f"SELECT paper_id, doi, title, year, oa_pdf_url FROM papers WHERE {where}"
     ).fetchall()
+    total = len(rows)
+    log.info("pdf: %d paper(s) to download", total)
+    started = time.monotonic()
     counts = {"downloaded": 0, "failed": 0}
-    for r in rows:
+    for i, r in enumerate(rows, start=1):
         pid, doi, title, year, oa_url = r["paper_id"], r["doi"], r["title"], r["year"], r["oa_pdf_url"]
         dest = pdf_root / str(year) / f"{pid}.pdf"
         urls = []
@@ -90,4 +98,11 @@ def download_pdfs(conn: sqlite3.Connection, session: requests.Session, *,
                 (pid,),
             )
             counts["failed"] += 1
+        if i % PROGRESS_INTERVAL == 0 or i == total:
+            elapsed = time.monotonic() - started
+            rate = i / elapsed if elapsed > 0 else 0.0
+            log.info(
+                "pdf: %d/%d (downloaded=%d failed=%d) %.2f papers/s",
+                i, total, counts["downloaded"], counts["failed"], rate,
+            )
     return counts
