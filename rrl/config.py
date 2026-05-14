@@ -64,6 +64,13 @@ class Settings:
                 "OPENALEX_EMAIL is required (used in User-Agent for OpenAlex and as the "
                 "email param for Unpaywall). Set it in .env."
             )
+        # Reject the .env.example placeholder so it can't silently leak — Unpaywall
+        # returns 422 for invalid emails and OpenAlex's polite pool would be useless.
+        if email == "your-email@example.com":
+            raise RuntimeError(
+                "OPENALEX_EMAIL is still the .env.example placeholder. "
+                "Edit .env and set it to a real email address."
+            )
         s2 = os.environ.get("SEMANTIC_SCHOLAR_API_KEY", "").strip() or None
         core = os.environ.get("CORE_API_KEY", "").strip() or None
         return cls(openalex_email=email, s2_api_key=s2, core_api_key=core)
