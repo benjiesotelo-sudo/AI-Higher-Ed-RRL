@@ -1,0 +1,15 @@
+{
+  "token": "TOK2",
+  "data": [
+    {
+      "paperId": "abc123",
+      "externalIds": {"DOI": "10.1/zzz"},
+      "title": "LLM use among graduate students",
+      "year": 2023,
+      "abstract": "Survey of LLM use.",
+      "venue": "J. Educational Tech",
+      "authors": [{"name": "Mei Wang", "authorId": "A1"}],
+      "citationCount": 7
+    }
+  ]
+}
