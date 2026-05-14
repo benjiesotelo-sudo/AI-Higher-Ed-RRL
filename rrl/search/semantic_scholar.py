@@ -23,9 +23,11 @@ class SemanticScholarAdapter:
         self.api_key = api_key
 
     def _render_query(self, q: QuerySpec) -> str:
-        ai = " OR ".join(f'"{t}"' for t in q.ai_terms)
-        he = " OR ".join(f'"{t}"' for t in q.he_terms)
-        return f"({ai}) ({he})"
+        # S2 bulk search: space-separated tokens are AND, `|` is OR. The
+        # literal word "OR" is matched as a search term, not an operator.
+        ai = " | ".join(f'"{t}"' for t in q.ai_terms)
+        he = " | ".join(f'"{t}"' for t in q.he_terms)
+        return f"({ai}) + ({he})"
 
     def search(self, q: QuerySpec, run_id: str) -> Iterator[RawRecord]:
         headers = {"x-api-key": self.api_key} if self.api_key else {}
