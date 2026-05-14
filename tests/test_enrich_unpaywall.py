@@ -25,8 +25,11 @@ def test_enrich_writes_oa_pdf_url(tmp_path: Path):
     responses.add(responses.GET, "https://api.unpaywall.org/v2/10.1/aaa",
                   json={"best_oa_location": {"url_for_pdf": "https://x/y.pdf"}}, status=200)
     enrich_papers_with_unpaywall(conn, build_session("t@e.com"), email="t@e.com")
-    v = conn.execute("SELECT oa_pdf_url FROM papers WHERE paper_id='p1'").fetchone()[0]
-    assert v == "https://x/y.pdf"
+    row = conn.execute("SELECT oa_pdf_url, is_oa FROM papers WHERE paper_id='p1'").fetchone()
+    assert row["oa_pdf_url"] == "https://x/y.pdf"
+    # Unpaywall returning a PDF URL implies the paper is OA — set is_oa=1
+    # so the screen filter doesn't reject these papers as not_oa.
+    assert row["is_oa"] == 1
 
 @responses.activate
 def test_enrich_skips_papers_without_doi(tmp_path: Path):
