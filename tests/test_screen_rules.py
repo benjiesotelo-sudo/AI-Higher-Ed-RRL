@@ -1,5 +1,6 @@
 from rrl.screen.rules import (
     topic_hits, era_tag_for_year, evaluate_paper, decide_quality_tier,
+    methodology_exclusion,
 )
 
 def test_topic_hits_counts_unique():
@@ -16,7 +17,8 @@ def test_era_tag():
 
 def test_evaluate_paper_includes_on_topic_oa():
     p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
-         "title": "ChatGPT in higher education", "abstract": "Survey of faculty.", "venue": "J"}
+         "title": "ChatGPT in higher education", "abstract": "Survey of faculty.", "venue": "J",
+         "is_peer_reviewed": 1, "work_type": "journal-article"}
     r = evaluate_paper(p)
     assert r["included"] == 1
     assert r["era_tag"] == "post_chatgpt"
@@ -72,3 +74,76 @@ def test_predatory_publisher_forces_review_needed():
     p = {"included": 1, "is_peer_reviewed": 1, "is_in_doaj": 1,
          "work_type": "journal-article", "publisher": "OMICS International", "k12_mixed": False}
     assert decide_quality_tier(p) == "review_needed"
+
+# --- Dean's stricter rules: peer-reviewed + empirical only ---
+
+def test_evaluate_rejects_when_not_peer_reviewed():
+    p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
+         "title": "ChatGPT in higher education", "abstract": "Survey of faculty.", "venue": "J",
+         "is_peer_reviewed": 0, "work_type": "journal-article"}
+    assert evaluate_paper(p)["exclusion_reason"] == "not_peer_reviewed"
+
+def test_evaluate_rejects_when_peer_review_unknown():
+    # is_peer_reviewed missing/null is treated as not_peer_reviewed (strict).
+    p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
+         "title": "ChatGPT in higher education", "abstract": "Survey of faculty.", "venue": "J"}
+    assert evaluate_paper(p)["exclusion_reason"] == "not_peer_reviewed"
+
+def test_evaluate_rejects_systematic_review_title():
+    p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
+         "title": "ChatGPT in higher education: a systematic review",
+         "abstract": "We searched databases.", "venue": "J",
+         "is_peer_reviewed": 1, "work_type": "journal-article"}
+    assert evaluate_paper(p)["exclusion_reason"] == "non_empirical"
+
+def test_evaluate_rejects_literature_review_title():
+    p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
+         "title": "LLMs in universities: a literature review",
+         "abstract": "We synthesize prior work.", "venue": "J",
+         "is_peer_reviewed": 1, "work_type": "journal-article"}
+    assert evaluate_paper(p)["exclusion_reason"] == "non_empirical"
+
+def test_evaluate_rejects_meta_analysis():
+    p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
+         "title": "Effects of ChatGPT on undergraduate learning: a meta-analysis",
+         "abstract": "We pooled effect sizes.", "venue": "J",
+         "is_peer_reviewed": 1, "work_type": "journal-article"}
+    assert evaluate_paper(p)["exclusion_reason"] == "non_empirical"
+
+def test_evaluate_rejects_editorial_work_type():
+    p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
+         "title": "ChatGPT and university teaching",
+         "abstract": "Reflections.", "venue": "J",
+         "is_peer_reviewed": 1, "work_type": "editorial"}
+    assert evaluate_paper(p)["exclusion_reason"] == "non_empirical"
+
+def test_evaluate_rejects_review_work_type():
+    p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
+         "title": "Generative AI policy in universities",
+         "abstract": "policy", "venue": "J",
+         "is_peer_reviewed": 1, "work_type": "review"}
+    assert evaluate_paper(p)["exclusion_reason"] == "non_empirical"
+
+def test_evaluate_rejects_commentary_via_abstract():
+    p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
+         "title": "ChatGPT and higher education",
+         "abstract": "This paper is a commentary on recent developments in AI.",
+         "venue": "J", "is_peer_reviewed": 1, "work_type": "journal-article"}
+    assert evaluate_paper(p)["exclusion_reason"] == "non_empirical"
+
+def test_methodology_exclusion_passes_empirical_paper():
+    # Empirical study that cites prior literature reviews should NOT be excluded
+    # (our patterns are anchored to first-person/this-paper phrasing).
+    assert methodology_exclusion(
+        title="ChatGPT adoption among undergraduates",
+        abstract="Building on prior literature reviews, we surveyed 350 students "
+                 "and analyzed responses thematically.",
+        work_type="journal-article",
+    ) is None
+
+def test_methodology_exclusion_rejects_conceptual_framework_title():
+    assert methodology_exclusion(
+        title="A conceptual framework for AI in higher education",
+        abstract="",
+        work_type="journal-article",
+    ) == "non_empirical"
