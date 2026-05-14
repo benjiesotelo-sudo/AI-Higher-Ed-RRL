@@ -1,5 +1,6 @@
 """rrl CLI entrypoint. Stages are wired in later tasks; this is the skeleton."""
 from __future__ import annotations
+import json
 from pathlib import Path
 
 import click
@@ -94,8 +95,22 @@ def screen(ctx, dry_run):
 @click.pass_context
 def export(ctx, retry_failed):
     """Download PDFs, write xlsx + manifest, update README appendix."""
-    click.echo("export: not yet implemented")
-    raise click.exceptions.Exit(2)
+    from rrl.config import Settings
+    from rrl.http import build_session
+    from rrl.output.runner import run_export
+    settings = Settings.from_env()
+    sess = build_session(settings.openalex_email)
+    summary = run_export(
+        ctx.obj["db"],
+        session=sess,
+        pdf_root=Path("pdfs"),
+        matrix_path=Path("output/rrl_matrix.xlsx"),
+        manifest_path=Path("output/run_manifest.json"),
+        readme_path=Path("README.md"),
+        core_api_key=settings.core_api_key,
+        retry_failed=retry_failed,
+    )
+    click.echo(json.dumps(summary, indent=2, default=str))
 
 @main.command(name="all")
 @click.option("--skip", default=None, help="Comma-separated stage names to skip")
