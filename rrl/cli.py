@@ -103,7 +103,9 @@ def export(ctx, retry_failed):
     """Download PDFs, write xlsx + manifest, update README appendix."""
     from rrl.config import Settings
     from rrl.http import build_session
+    from rrl.logging_setup import configure_logging
     from rrl.output.runner import run_export
+    configure_logging("export", DEFAULT_LOG_DIR)
     settings = Settings.from_env()
     sess = build_session(settings.openalex_email)
     summary = run_export(
