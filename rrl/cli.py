@@ -37,8 +37,23 @@ def harvest(ctx, only, since):
 @click.pass_context
 def dedup(ctx, review, merge):
     """Build canonical papers from raw_records."""
-    click.echo("dedup: not yet implemented")
-    raise click.exceptions.Exit(2)
+    from rrl.db import connect, init_schema
+    from rrl.dedup.grouping import run_dedup
+    from rrl.dedup.review import write_review_csv
+    from rrl.dedup.merge import merge_papers
+    db_path = ctx.obj["db"]
+    conn = connect(db_path); init_schema(conn)
+    if merge:
+        loser, winner = merge
+        merge_papers(conn, loser, winner, pdf_root=Path("pdfs"))
+        click.echo(f"merged {loser} into {winner}")
+        return
+    if review:
+        n = write_review_csv(conn, Path("data/dedup_review.csv"))
+        click.echo(f"wrote {n} candidate pair(s) to data/dedup_review.csv")
+        return
+    summary = run_dedup(conn)
+    click.echo(f"raw_records: {summary['raw_records']}; papers: {summary['papers_created']}")
 
 @main.command()
 @click.option("--only", default=None, help="doaj|unpaywall|openalex")
