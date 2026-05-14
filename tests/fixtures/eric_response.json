@@ -1,0 +1,27 @@
+{
+  "response": {
+    "numFound": 2,
+    "start": 0,
+    "docs": [
+      {
+        "id": "EJ100001",
+        "title": ["Higher education adoption of generative AI"],
+        "author": ["Smith, J.", "Doe, A."],
+        "publicationdateyear": 2024,
+        "description": ["A study of faculty perceptions of ChatGPT."],
+        "publisher": ["Journal of Higher Ed"],
+        "issn": ["1234-5678"],
+        "language": ["English"]
+      },
+      {
+        "id": "ED600001",
+        "title": ["AI literacy programs in colleges"],
+        "author": ["Lee, P."],
+        "publicationdateyear": 2025,
+        "description": ["A program report on AI literacy."],
+        "publisher": ["ERIC"],
+        "language": ["English"]
+      }
+    ]
+  }
+}
