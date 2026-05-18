@@ -4,6 +4,19 @@ Running log of session-level work on the AI in Higher Ed RRL project. Newest at 
 
 ---
 
+## 2026-05-18 (cont.) — Harvest complete (4 databases)
+
+| Adapter | raw_records | status |
+|---|---:|---|
+| openalex | 51,372 | ok |
+| eric     | 16,177 | ok |
+| s2       |  4,922 | ok |
+| scopus   | 22,719 | ok |
+
+Total: 95,190 raw_records. Scopus found 22,739 but 20 were cross-bucket duplicates (per-year bucketing in adapter). Dedup, enrich, screen, export to follow.
+
+---
+
 ## 2026-05-18 (evening) — Methodology pivot: OA constraint lifted, Elsevier added
 
 Supervisor approval received in writing on 2026-05-18. Two scope changes:
