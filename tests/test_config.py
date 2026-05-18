@@ -43,3 +43,32 @@ def test_settings_loads_from_env(monkeypatch):
     assert s.openalex_email == "test@example.com"
     assert s.s2_api_key == "abc123"
     assert s.core_api_key is None
+
+
+def test_settings_from_env_loads_elsevier_key(monkeypatch):
+    monkeypatch.setenv("OPENALEX_EMAIL", "user@example.com")
+    monkeypatch.setenv("ELSEVIER_API_KEY", "fake-elsevier-key")
+    monkeypatch.delenv("ELSEVIER_INSTTOKEN", raising=False)
+    from rrl.config import Settings
+    s = Settings.from_env()
+    assert s.elsevier_api_key == "fake-elsevier-key"
+    assert s.elsevier_insttoken is None
+
+
+def test_settings_from_env_elsevier_key_optional(monkeypatch):
+    monkeypatch.setenv("OPENALEX_EMAIL", "user@example.com")
+    monkeypatch.delenv("ELSEVIER_API_KEY", raising=False)
+    monkeypatch.delenv("ELSEVIER_INSTTOKEN", raising=False)
+    from rrl.config import Settings
+    s = Settings.from_env()
+    assert s.elsevier_api_key is None
+    assert s.elsevier_insttoken is None
+
+
+def test_settings_from_env_loads_elsevier_insttoken(monkeypatch):
+    monkeypatch.setenv("OPENALEX_EMAIL", "user@example.com")
+    monkeypatch.setenv("ELSEVIER_API_KEY", "fake-key")
+    monkeypatch.setenv("ELSEVIER_INSTTOKEN", "fake-token")
+    from rrl.config import Settings
+    s = Settings.from_env()
+    assert s.elsevier_insttoken == "fake-token"
