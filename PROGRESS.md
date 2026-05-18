@@ -4,6 +4,39 @@ Running log of session-level work on the AI in Higher Ed RRL project. Newest at 
 
 ---
 
+## 2026-05-18 (late PM) — ERIC OA-URL wiring (correction of mis-recorded earlier decision)
+
+**Correction:** the earlier PM-session summary said the ERIC OA-URL wiring was deferred. That was based on a mis-read of the structured-question tool result; the user had in fact selected Option 2 (wire it now). This entry is the corrective execution.
+
+### Commit `a05e007`
+
+New enrichment module `rrl/enrich/eric_flags.py` (with 5 tests in `tests/test_enrich_eric_flags.py`):
+
+- `peerreviewed='T'` → `is_peer_reviewed=1` for all ERIC raws (10,558 papers affected)
+- ED-prefix `external_id` → `is_oa=1` + `oa_pdf_url=https://files.eric.ed.gov/fulltext/<ID>.pdf` (6,323 papers affected)
+- Wired into the CLI `enrich` command between the OpenAlex and DOAJ passes; uses COALESCE throughout so OpenAlex values take precedence on hybrid records
+
+**Corpus impact** (single re-enrich → re-screen → re-export, no re-harvest needed):
+- Included papers: **520 → 561** (+41)
+- Papers in matrix: **424 → 452** (+28; 13 ERIC PDFs hit `oa_link_dead`)
+- `high_confidence`: **48 → 76** (+28; all ERIC additions land in HC)
+- `review_needed`: 376 (unchanged)
+
+All 41 newly-included ERIC papers are ED-prefix gray literature (technical reports, theses, conference proceedings) absent from OpenAlex and Semantic Scholar — exactly the gray-lit niche ERIC was supposed to surface.
+
+**EJ-prefix records still excluded** (9,794 of them with `peerreviewed='T'`): ERIC's `files.eric.ed.gov` mirror does not host them and the ERIC API exposes no DOI. Recovery would require a DOI-by-title pass against CrossRef → Unpaywall. Logged as a follow-up but not in scope for this session.
+
+`Manuscript/prisma_data.md` regenerated. Manuscript §1 (corpus size), §2.3 (Information sources), §3.1 (Study selection), and §4.3 (Limitations) updated to reflect the real 3-database contribution. Final per-database contribution to the 561-paper included corpus:
+
+| Database | Found-in | Unique |
+|---|---:|---:|
+| OpenAlex | 516 | 496 |
+| ERIC | 41 | **41** |
+| Semantic Scholar | 24 | 0 |
+| Dean-provided | 4 | 0 |
+
+---
+
 ## 2026-05-18 (PM) — ERIC re-harvest + PRISMA reporting
 
 Two sequential tasks. All committed locally; nothing pushed.
@@ -60,11 +93,12 @@ Manuscript revisions:
 
 ## Open items for the next session
 
-1. **ERIC OA-URL wiring** — the biggest remaining lever. Wiring `https://files.eric.ed.gov/fulltext/<external_id>.pdf` for ED-prefix records, plus mapping ERIC's `peerreviewed='T'` → `is_peer_reviewed=1` would surface roughly 1,087 candidate papers for inclusion (subject to methodology-gate confirmation).
+1. **ERIC EJ-prefix recovery** — the next ERIC lever. 9,794 EJ-prefix journal records carry `peerreviewed='T'` but have no DOI in the ERIC API payload, and ERIC's `files.eric.ed.gov` mirror does not host them. Recovery would require a DOI-by-title pass against CrossRef → Unpaywall. Yield uncertain; left as a sensitivity-analysis follow-up.
 2. **PROSPERO registration decision** (manuscript §2.1).
-3. **Data-extraction template** to finalize before reading 424 PDFs (manuscript §2.6).
+3. **Data-extraction template** to finalize before reading 452 PDFs (manuscript §2.6).
 4. **Target journal** to lock in (`Manuscript/README.md`).
 5. **`dean_provided` provenance refinement** — the 4 `dean_provided + s2` papers were also verified in OpenAlex during ingestion but no `openalex` raw_record was created. A small follow-up could add that for cleaner provenance.
+6. **13 ERIC `oa_link_dead`** — could be retried with `rrl export --retry-failed` if the ERIC mirror gains coverage, or located manually via the ERIC web UI.
 
 ---
 
