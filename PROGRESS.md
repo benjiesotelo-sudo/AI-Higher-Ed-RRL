@@ -4,6 +4,22 @@ Running log of session-level work on the AI in Higher Ed RRL project. Newest at 
 
 ---
 
+## 2026-05-18 (evening) — Methodology pivot: OA constraint lifted, Elsevier added
+
+Supervisor approval received in writing on 2026-05-18. Two scope changes:
+
+1. **OA-only constraint lifted.** The `not_oa` exclusion in `rrl/screen/rules.py` was an operational compromise, not a methodological requirement. Paywalled content (accessed via institutional credentials) is now in scope.
+2. **Elsevier (Scopus + ScienceDirect) added as a fourth data source.** Institutional Scopus Search API key registered with the FEU institutional email. ScienceDirect TDM full-text access will be verified empirically in Phase 3 (branch A = TDM works; branch B = metadata-only).
+
+Full spec at `docs/superpowers/specs/2026-05-18-rescrape-and-elsevier-design.md`. Plan at `docs/superpowers/plans/2026-05-18-rescrape-and-elsevier.md`.
+
+Safety nets in place before any destructive action:
+- Git tag `v1-pre-rescrape` points to commit `b230486`.
+- `data/rrl_pre_rescrape.sqlite` (598 MB) created manually.
+- Phase 5 will rename (not delete) `pdfs/` → `pdfs_pre_rescrape/` and `logs/` → `logs_pre_rescrape/` for instant rollback.
+
+---
+
 ## 2026-05-18 (night) — Removed the supplementary-PDF channel entirely
 
 User decision: drop the six externally-supplied PDFs from the corpus and revert the pipeline to a clean three-database (OpenAlex / ERIC / Semantic Scholar) run. Rationale: the workflow needed to handle that side-channel was adding session overhead disproportionate to its yield (4 high_confidence rows; 2 of the 6 were literature reviews that the methodology gate rejected anyway).
