@@ -1,14 +1,15 @@
-"""Ingest the 6 dean-provided PDFs into the corpus.
+"""Ingest hand-supplied supplementary PDFs into the corpus (PRISMA 2020 "other sources").
 
-For each PDF in pdfs/From Dean/:
+For each PDF in pdfs/supplementary/:
   1. Extract first-2-pages text via pypdf; pull DOI/title heuristically.
   2. Query OpenAlex (DOI if present, else title search) for canonical metadata.
   3. Compute dedup_key the same way `rrl dedup` does.
-  4. If the resulting paper_id already exists → log duplicate, link the dean
-     raw_record to it. If new → insert paper + run flag enrichment + screen.
+  4. If the resulting paper_id already exists → log duplicate, link the
+     supplementary raw_record to it. If new → insert paper + run flag
+     enrichment + screen.
   5. Move PDF to pdfs/<year>/<paper_id>.pdf and mark pdf_status='downloaded'.
 
-Run from project root:  python scripts/ingest_dean_pdfs.py
+Run from project root:  python scripts/ingest_supplementary_pdfs.py
 """
 from __future__ import annotations
 
@@ -37,7 +38,7 @@ from rrl.enrich.unpaywall import lookup_doi as unpaywall_lookup
 from rrl.enrich.doaj import lookup_issn as doaj_lookup
 from rrl.screen.rules import evaluate_paper
 
-PDF_SRC = ROOT / "pdfs" / "From Dean"
+PDF_SRC = ROOT / "pdfs" / "supplementary"
 PDF_ROOT = ROOT / "pdfs"
 DB_PATH = ROOT / "data" / "rrl.sqlite"
 
@@ -190,23 +191,24 @@ def build_raw_record_payload(pdf_path: Path, pdf_meta: dict, oa_payload: dict | 
         "authors_json": json.dumps([{"family": fb["first_author"] or "", "given": "", "orcid": None}]) if fb["first_author"] else "[]",
         "first_author": normalize_author_name(fb["first_author"]) if fb["first_author"] else None,
         "raw_payload": {"source": "pypdf_only", "filename": pdf_path.name, "pdf_meta": pdf_meta.get("title_guess"), "doi_guess": pdf_meta.get("doi_guess")},
-        "external_id": f"dean_{pdf_path.stem}",
+        "external_id": f"supplementary_{pdf_path.stem}",
     }
 
 
 def ensure_search_run(conn: sqlite3.Connection) -> str:
     """Create a single search_runs row for this batch; reuse if already exists."""
     row = conn.execute(
-        "SELECT run_id FROM search_runs WHERE adapter='dean_provided' ORDER BY started_at DESC LIMIT 1"
+        "SELECT run_id FROM search_runs WHERE adapter='supplementary_search' ORDER BY started_at DESC LIMIT 1"
     ).fetchone()
     if row:
         return row["run_id"]
-    run_id = f"dean-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:6]}"
+    run_id = f"supplementary-{datetime.now(timezone.utc).strftime('%Y%m%dT%H%M%S')}-{uuid.uuid4().hex[:6]}"
     conn.execute(
         """INSERT INTO search_runs (run_id, adapter, query_hash, query_payload,
            started_at, finished_at, status, records_found, records_new)
            VALUES (?,?,?,?,?,?,?,?,?)""",
-        (run_id, "dean_provided", "n/a", json.dumps({"source": "dean_provided", "batch": "2026-05-18"}),
+        (run_id, "supplementary_search", "n/a",
+         json.dumps({"source": "supplementary_search", "batch": "2026-05-18"}),
          now(), now(), "ok", 0, 0),
     )
     return run_id
@@ -218,13 +220,13 @@ def insert_raw_record(conn: sqlite3.Connection, run_id: str, rec: dict) -> int:
            title, title_norm, authors_json, first_author, year, venue, abstract,
            language, raw_payload, fetched_at)
            VALUES (?,?,?,?,?,?,?,?,?,?,?,?,?,?)""",
-        (run_id, "dean_provided", rec["external_id"], rec["doi"], rec["title"],
+        (run_id, "supplementary_search", rec["external_id"], rec["doi"], rec["title"],
          rec["title_norm"], rec["authors_json"], rec["first_author"], rec["year"],
          rec["venue"], rec["abstract"], rec["language"],
          json.dumps(rec["raw_payload"]), now()),
     )
     row = conn.execute(
-        "SELECT raw_id FROM raw_records WHERE adapter='dean_provided' AND external_id=?",
+        "SELECT raw_id FROM raw_records WHERE adapter='supplementary_search' AND external_id=?",
         (rec["external_id"],),
     ).fetchone()
     return row["raw_id"]
@@ -363,7 +365,7 @@ def screen_paper(conn: sqlite3.Connection, paper_id: str) -> dict:
         (paper_id,),
     ).fetchone()
     paper = {k: row[k] for k in row.keys()}
-    # Dean-provided PDFs: we *have* the PDF locally, so OA status is moot for
+    # Supplementary PDFs: we *have* the PDF locally, so OA status is moot for
     # accessibility. Force is_oa=1 / oa_pdf_url='local' so the screen's not_oa
     # gate doesn't reject papers we already possess.
     paper["is_oa"] = 1
@@ -386,8 +388,8 @@ def move_pdf(pdf_path: Path, paper_id: str, year: int) -> Path:
     year_dir.mkdir(parents=True, exist_ok=True)
     dest = year_dir / f"{paper_id}.pdf"
     if dest.exists():
-        # Existing copy from a prior pipeline run — prefer the dean's version
-        # so the From Dean folder ends up empty as requested.
+        # Existing copy from a prior pipeline run — prefer the supplementary
+        # version so the supplementary folder ends up empty after ingest.
         dest.unlink()
     shutil.move(str(pdf_path), str(dest))
     return dest
@@ -412,7 +414,7 @@ def main() -> int:
     conn = connect(DB_PATH)
     init_schema(conn)
     session = requests.Session()
-    session.headers.update({"User-Agent": f"rrl-dean-ingest ({email})"})
+    session.headers.update({"User-Agent": f"rrl-supplementary-ingest ({email})"})
 
     run_id = ensure_search_run(conn)
     print(f"\nUsing search_run: {run_id}\n")
@@ -440,7 +442,7 @@ def main() -> int:
 
         existing_pid = find_existing_paper_id(conn, rec, oa_payload)
         if existing_pid:
-            # Existing — just link the dean source.
+            # Existing — just link the supplementary source.
             raw_id = insert_raw_record(conn, run_id, rec)
             link_paper_source(conn, existing_pid, raw_id)
             existing = conn.execute(
@@ -449,7 +451,9 @@ def main() -> int:
             ).fetchone()
             print(f"  → DUPLICATE of existing paper {existing_pid}: {existing['title'][:60]!r} ({existing['year']})")
             print(f"     existing screen: included={existing['included']} reason={existing['exclusion_reason']} tier={existing['quality_tier']} pdf={existing['pdf_filename']!r}")
-            # If existing paper has no PDF downloaded, use the dean's local copy.
+            # Adopt the supplementary local copy unconditionally — it is the
+            # only PDF on hand for these S2-only papers that the original
+            # pipeline could not download.
             yr = existing["year"] or rec["year"] or 0
             dest = move_pdf(p, existing_pid, yr)
             rel = str(dest.relative_to(PDF_ROOT))
@@ -457,7 +461,7 @@ def main() -> int:
                 "UPDATE papers SET pdf_filename=?, pdf_status='downloaded', last_updated_at=datetime('now') WHERE paper_id=?",
                 (rel, existing_pid),
             )
-            print(f"     dean PDF → {rel} (overwrote any prior copy)")
+            print(f"     supplementary PDF → {rel} (overwrote any prior copy)")
             results.append({"pdf": p.name, "outcome": "duplicate", "paper_id": existing_pid,
                             "existing_included": existing["included"], "existing_reason": existing["exclusion_reason"]})
             continue

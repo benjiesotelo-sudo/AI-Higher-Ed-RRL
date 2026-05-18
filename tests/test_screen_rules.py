@@ -124,7 +124,7 @@ def test_explicit_non_article_work_type_still_demoted():
          "work_type": "dataset", "publisher": "X", "k12_mixed": False}
     assert decide_quality_tier(p) == "review_needed"
 
-# --- Dean's stricter rules: peer-reviewed + empirical only ---
+# --- Protocol's stricter rules: peer-reviewed + empirical only ---
 
 def test_evaluate_rejects_when_not_peer_reviewed():
     p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",

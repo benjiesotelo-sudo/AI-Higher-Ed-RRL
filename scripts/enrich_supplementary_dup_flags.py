@@ -1,6 +1,6 @@
-"""Populate work_type/publisher/citation_count/is_in_doaj for the 5 dean
-duplicates whose flags were left NULL because the ingest script's
-duplicate path didn't enrich them.
+"""Populate work_type/publisher/citation_count/is_in_doaj for supplementary
+duplicates whose flags were left NULL because the ingest script's duplicate
+path didn't enrich them.
 
 One-shot, idempotent: re-fetches OpenAlex payload by DOI for each paper_id
 and applies the same flag mapping the regular pipeline uses.
@@ -19,10 +19,10 @@ sys.path.insert(0, str(ROOT))
 from rrl.db import connect
 from rrl.enrich.openalex_flags import _flags_from_payload
 from rrl.enrich.doaj import lookup_issn as doaj_lookup
-from scripts.ingest_dean_pdfs import load_env  # type: ignore
+from scripts.ingest_supplementary_pdfs import load_env  # type: ignore
 
 DB_PATH = ROOT / "data" / "rrl.sqlite"
-DEAN_PAPER_IDS = [
+SUPPLEMENTARY_PAPER_IDS = [
     "03aa44aa607b0e73", "41f5b0c950550505", "8ab99685bf611427",
     "786b0581c04bbb7a", "281df417f101e592", "83fc40cc33332056",
 ]
@@ -33,9 +33,9 @@ def main() -> int:
     email = os.environ["OPENALEX_EMAIL"]
     conn = connect(DB_PATH)
     session = requests.Session()
-    session.headers.update({"User-Agent": f"rrl-dean-enrich ({email})"})
+    session.headers.update({"User-Agent": f"rrl-supplementary-enrich ({email})"})
 
-    for pid in DEAN_PAPER_IDS:
+    for pid in SUPPLEMENTARY_PAPER_IDS:
         row = conn.execute("SELECT doi FROM papers WHERE paper_id=?", (pid,)).fetchone()
         if not row or not row["doi"]:
             print(f"  {pid}: no DOI, skipping")
@@ -47,7 +47,7 @@ def main() -> int:
             continue
         payload = r.json()
         flags = _flags_from_payload(payload)
-        # NOTE: don't overwrite is_oa/is_peer_reviewed (dean trust set these).
+        # NOTE: don't overwrite is_oa/is_peer_reviewed (supplementary-trust set these).
         conn.execute(
             """UPDATE papers SET
                  work_type=COALESCE(work_type, ?),

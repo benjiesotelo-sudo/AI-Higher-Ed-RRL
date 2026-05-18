@@ -21,7 +21,7 @@ CS_CURRICULUM_RE = re.compile(
     re.IGNORECASE,
 )
 
-# Methodology detection (dean's requirement: empirical studies only)
+# Methodology detection (empirical studies only per the review protocol)
 # Title-level cues that the paper IS a review/editorial/conceptual piece.
 NON_EMPIRICAL_TITLE_RE = re.compile(
     r"\b("
@@ -89,7 +89,7 @@ def evaluate_paper(p: dict) -> dict:
 
     Order: cheap-and-categorical filters first (year/lang/OA), then topic
     filters (so off_topic is reported for off-topic papers regardless of
-    their peer-review or methodology state), then the dean's strict gates
+    their peer-review or methodology state), then the protocol's strict gates
     (peer-reviewed + empirical-only). This keeps the exclusion-reason
     counts maximally informative for review.
     """
@@ -151,7 +151,7 @@ def decide_quality_tier(p: dict) -> str:
 
     Note on NULL work_type: only OpenAlex sets work_type/publisher in this
     pipeline; ERIC and S2 leave them NULL. Because the screen has already
-    enforced peer-review (dean's rule) and the methodology gate has already
+    enforced peer-review (protocol rule) and the methodology gate has already
     excluded explicit non-empirical work types (editorial/letter/review/...),
     a NULL work_type at this stage means "from a source without that
     metadata" — not "of unknown nature". Treat it as acceptable here so
