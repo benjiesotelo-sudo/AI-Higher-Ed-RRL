@@ -90,6 +90,7 @@ def _format_appendix(counts: dict, runtimes: dict, run_at: str, pdf_summary: dic
 
 def run_export(db: Path, *, session: requests.Session, pdf_root: Path, matrix_path: Path,
                manifest_path: Path, readme_path: Path, core_api_key: str | None,
+               elsevier_api_key: str | None = None,
                retry_failed: bool = False) -> dict:
     from rrl.db import connect, init_schema
     conn = connect(db); init_schema(conn)
@@ -97,6 +98,7 @@ def run_export(db: Path, *, session: requests.Session, pdf_root: Path, matrix_pa
     runtimes: dict[str, float] = {}
     t0 = time.monotonic()
     pdf_summary = download_pdfs(conn, session, pdf_root=pdf_root, core_api_key=core_api_key,
+                                elsevier_api_key=elsevier_api_key,
                                 retry_failed=retry_failed)
     runtimes["export_pdf"] = time.monotonic() - t0
 

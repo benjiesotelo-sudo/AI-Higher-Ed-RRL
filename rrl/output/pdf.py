@@ -56,10 +56,11 @@ def _try_url(session, url, source, paper_id, conn, dest: Path,
 
 def download_pdfs(conn: sqlite3.Connection, session: requests.Session, *,
                   pdf_root: Path, core_api_key: str | None,
+                  elsevier_api_key: str | None = None,
                   retry_failed: bool = False) -> dict:
     where = "included = 1 AND pdf_status IS NULL"
     if retry_failed:
-        where = "included = 1 AND (pdf_status IS NULL OR pdf_status = 'oa_link_dead')"
+        where = "included = 1 AND (pdf_status IS NULL OR pdf_status IN ('oa_link_dead', 'not_retrievable'))"
     rows = conn.execute(
         f"SELECT paper_id, doi, title, year, oa_pdf_url FROM papers WHERE {where}"
     ).fetchall()
@@ -70,20 +71,27 @@ def download_pdfs(conn: sqlite3.Connection, session: requests.Session, *,
     for i, r in enumerate(rows, start=1):
         pid, doi, title, year, oa_url = r["paper_id"], r["doi"], r["title"], r["year"], r["oa_pdf_url"]
         dest = pdf_root / str(year) / f"{pid}.pdf"
-        urls = []
+        # Each attempt is a 3-tuple: (source, url, headers_dict_or_None)
+        attempts: list[tuple[str, str, dict | None]] = []
         if oa_url:
-            urls.append(("oa", oa_url))
+            attempts.append(("oa", oa_url, None))
         if doi and core_api_key:
             core_url = find_pdf_by_doi(session, doi, api_key=core_api_key)
             if core_url:
-                urls.append(("core_doi", core_url))
+                attempts.append(("core_doi", core_url, None))
         if title and core_api_key:
             core_url = find_pdf_by_title(session, title, api_key=core_api_key)
             if core_url:
-                urls.append(("core_title", core_url))
+                attempts.append(("core_title", core_url, None))
+        if doi and elsevier_api_key and doi.startswith("10.1016/"):
+            attempts.append((
+                "sciencedirect",
+                f"https://api.elsevier.com/content/article/doi/{doi}",
+                {"X-ELS-APIKey": elsevier_api_key, "Accept": "application/pdf"},
+            ))
         ok = False
-        for source, url in urls:
-            if _try_url(session, url, source, pid, conn, dest):
+        for source, url, headers in attempts:
+            if _try_url(session, url, source, pid, conn, dest, headers=headers):
                 ok = True
                 break
         if ok:
@@ -95,7 +103,7 @@ def download_pdfs(conn: sqlite3.Connection, session: requests.Session, *,
             counts["downloaded"] += 1
         else:
             conn.execute(
-                "UPDATE papers SET pdf_status='oa_link_dead', last_updated_at=datetime('now') WHERE paper_id=?",
+                "UPDATE papers SET pdf_status='not_retrievable', last_updated_at=datetime('now') WHERE paper_id=?",
                 (pid,),
             )
             counts["failed"] += 1
