@@ -14,8 +14,9 @@ from rrl.search.base import QuerySpec, RawRecord, normalize_title, normalize_aut
 from rrl.search.openalex import OpenAlexAdapter
 from rrl.search.eric import ERICAdapter
 from rrl.search.semantic_scholar import SemanticScholarAdapter
+from rrl.search.scopus import ScopusAdapter
 
-ADAPTERS = ("openalex", "eric", "s2")
+ADAPTERS = ("openalex", "eric", "s2", "scopus")
 
 def _now() -> str:
     return datetime.now(timezone.utc).isoformat()
@@ -32,6 +33,14 @@ def _build_adapter(name: str, settings: Settings):
         return ERICAdapter(session=rls)
     if name == "s2":
         return SemanticScholarAdapter(session=rls, api_key=settings.s2_api_key)
+    if name == "scopus":
+        if not settings.elsevier_api_key:
+            raise ValueError("scopus adapter requires ELSEVIER_API_KEY in env")
+        return ScopusAdapter(
+            session=rls,
+            api_key=settings.elsevier_api_key,
+            inst_token=settings.elsevier_insttoken,
+        )
     raise ValueError(f"unknown adapter {name}")
 
 def _persist_record(conn, run_id: str, adapter: str, rec: RawRecord) -> bool:
@@ -64,6 +73,9 @@ def harvest(db_path: Path, *, only: list[str] | None = None, since: str | None =
     for name in selected:
         if name not in ADAPTERS:
             log.warn("unknown_adapter", adapter=name)
+            continue
+        if name == "scopus" and not settings.elsevier_api_key:
+            log.warn("scopus_skipped_no_key", reason="ELSEVIER_API_KEY not set")
             continue
         run_id = str(uuid.uuid4())
         adapter = _build_adapter(name, settings)
