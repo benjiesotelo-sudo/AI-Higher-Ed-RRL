@@ -167,7 +167,10 @@ def decide_quality_tier(p: dict) -> str:
     if wt == "book-chapter":
         if not _publisher_in_allowlist(publisher):
             return "review_needed"
-    elif wt is not None and wt not in {"journal-article", "proceedings-article", "review"}:
+    # OpenAlex's newer type taxonomy uses 'article' as the equivalent of the
+    # legacy 'journal-article'. Both shapes show up in raw_payloads; treat them
+    # as the same kind for tier purposes.
+    elif wt is not None and wt not in {"journal-article", "article", "proceedings-article", "review"}:
         return "review_needed"
     if not (p.get("is_peer_reviewed") == 1 or p.get("is_in_doaj") == 1):
         return "review_needed"
