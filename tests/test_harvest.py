@@ -23,6 +23,8 @@ def _setup_responses(fixtures_dir: Path):
 @responses.activate
 def test_harvest_populates_raw_records_and_search_runs(tmp_path, monkeypatch, fixtures_dir):
     monkeypatch.setenv("OPENALEX_EMAIL", "t@e.com")
+    monkeypatch.delenv("ELSEVIER_API_KEY", raising=False)
+    monkeypatch.delenv("ELSEVIER_INSTTOKEN", raising=False)
     monkeypatch.chdir(tmp_path)
     _setup_responses(fixtures_dir)
     r = CliRunner().invoke(main, ["harvest"])

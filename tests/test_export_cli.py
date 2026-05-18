@@ -8,7 +8,11 @@ from rrl.output.readme import BEGIN_MARK, END_MARK
 
 @responses.activate
 def test_export_creates_matrix_manifest_pdfs_and_updates_readme(tmp_path, monkeypatch, fixtures_dir):
-    monkeypatch.chdir(tmp_path); monkeypatch.setenv("OPENALEX_EMAIL", "t@e.com")
+    monkeypatch.chdir(tmp_path)
+    monkeypatch.setenv("OPENALEX_EMAIL", "t@e.com")
+    monkeypatch.delenv("ELSEVIER_API_KEY", raising=False)
+    monkeypatch.delenv("ELSEVIER_INSTTOKEN", raising=False)
+    monkeypatch.delenv("CORE_API_KEY", raising=False)
     conn = connect(tmp_path / "data/rrl.sqlite"); init_schema(conn)
     conn.execute("""INSERT INTO papers (paper_id, title, authors_json, year, era_tag, language,
         is_oa, oa_pdf_url, is_peer_reviewed, work_type, publisher,
