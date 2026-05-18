@@ -7,7 +7,7 @@ import requests
 from rrl.search.base import QuerySpec, RawRecord, normalize_doi
 
 BASE = "https://api.openalex.org/works"
-WORK_TYPES = ("journal-article", "book-chapter", "proceedings-article", "review")
+WORK_TYPES = ("article", "book-chapter", "review")
 
 def _decode_abstract(inverted: dict | None) -> str | None:
     if not inverted:
