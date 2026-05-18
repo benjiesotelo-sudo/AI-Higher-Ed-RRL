@@ -1,0 +1,40 @@
+{
+  "search-results": {
+    "opensearch:totalResults": "3",
+    "opensearch:startIndex": "0",
+    "opensearch:itemsPerPage": "2",
+    "cursor": {"@current": "*", "@next": "AoIIPaXNXXX"},
+    "entry": [
+      {
+        "dc:identifier": "SCOPUS_ID:85179000001",
+        "eid": "2-s2.0-85179000001",
+        "dc:title": "ChatGPT in higher education classrooms",
+        "prism:publicationName": "Journal of AI in Education",
+        "prism:coverDate": "2024-03-15",
+        "prism:doi": "10.1016/j.caeai.2024.100200",
+        "dc:description": "This study explores ChatGPT adoption by university faculty.",
+        "citedby-count": "12",
+        "subtype": "ar",
+        "subtypeDescription": "Article",
+        "author": [
+          {"authname": "Smith J.", "given-name": "John", "surname": "Smith"},
+          {"authname": "Lee K.", "given-name": "Kim", "surname": "Lee"}
+        ],
+        "language": "eng"
+      },
+      {
+        "dc:identifier": "SCOPUS_ID:85179000002",
+        "eid": "2-s2.0-85179000002",
+        "dc:title": "LLMs and undergraduate writing",
+        "prism:publicationName": "Higher Education Quarterly",
+        "prism:coverDate": "2024-01-10",
+        "prism:doi": "10.1111/hequ.12345",
+        "dc:description": "Empirical investigation of LLM use in undergraduate writing classes.",
+        "citedby-count": "5",
+        "subtype": "ar",
+        "author": [{"authname": "Garcia M.", "given-name": "Maria", "surname": "Garcia"}],
+        "language": "eng"
+      }
+    ]
+  }
+}

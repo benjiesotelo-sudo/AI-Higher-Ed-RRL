@@ -1,0 +1,21 @@
+{
+  "search-results": {
+    "opensearch:totalResults": "3",
+    "opensearch:startIndex": "2",
+    "opensearch:itemsPerPage": "2",
+    "cursor": {"@current": "AoIIPaXNXXX"},
+    "entry": [
+      {
+        "dc:identifier": "SCOPUS_ID:85179000003",
+        "eid": "2-s2.0-85179000003",
+        "dc:title": "GenAI literacy in graduate seminars",
+        "prism:publicationName": "Studies in Higher Education",
+        "prism:coverDate": "2023-11-01",
+        "prism:doi": null,
+        "citedby-count": "2",
+        "subtype": "cp",
+        "author": []
+      }
+    ]
+  }
+}
