@@ -16,6 +16,20 @@ A reproducible, auditable corpus you can read and cite. Two output tiers — `hi
 
 **Sources used:** OpenAlex (primary), ERIC (education-specific gray lit), Semantic Scholar (broad). DOAJ + Unpaywall for quality + OA verification. CrossRef + CORE on demand.
 
+## How it works
+
+A single `rrl` command kicks off the whole pipeline. It queries three academic search APIs, collapses cross-database duplicates into one canonical row per paper, verifies each paper is open-access and peer-reviewed, filters down to the in-scope subset by topic and date, downloads the full-text PDFs, and writes the result as a spreadsheet plus a foldered library of PDFs. Every stage is idempotent — interrupt it and the next run picks up where it left off.
+
+```mermaid
+flowchart LR
+    A([Search OpenAlex,<br/>ERIC, Semantic Scholar]) --> B[Harvest records]
+    B --> C[Merge duplicates<br/>across databases]
+    C --> D[Verify open-access<br/>+ peer-review]
+    D --> E[Filter by topic,<br/>date, language]
+    E --> F[Download PDFs]
+    F --> G[(rrl_matrix.xlsx<br/>+ downloaded PDFs)]
+```
+
 ## How to run
 
 This section walks a brand-new clone of the repo through the full pipeline. The pipeline is **resumable** — every stage writes incrementally to `data/rrl.sqlite` and skips work it has already done, so killing any command and rerunning it picks up where it left off.
