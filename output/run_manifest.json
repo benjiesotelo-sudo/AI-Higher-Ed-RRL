@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "pipeline_version": "0.1.0",
-  "run_id": "857cb221-17a1-4d73-bab9-a58945fb36e7",
-  "run_at_utc": "2026-05-18T04:30:29.574585+00:00",
+  "run_id": "d7764f3e-8c7c-4a9f-a1d5-93e50e82b7d9",
+  "run_at_utc": "2026-05-18T04:44:39.966271+00:00",
   "query_terms": {
     "ai_terms": [
       "artificial intelligence",
@@ -46,19 +46,19 @@
   "counts": {
     "raw_records": 63304,
     "papers_after_dedup": 62291,
-    "papers_after_screen_included": 520,
-    "papers_in_matrix": 424,
-    "pdfs_downloaded_cumulative": 426,
-    "pdfs_failed_cumulative": 96,
-    "high_confidence": 48,
+    "papers_after_screen_included": 561,
+    "papers_in_matrix": 452,
+    "pdfs_downloaded_cumulative": 454,
+    "pdfs_failed_cumulative": 109,
+    "high_confidence": 76,
     "review_needed": 376,
-    "excluded_off_topic": 1024,
-    "excluded_not_oa": 37671,
+    "excluded_off_topic": 7215,
+    "excluded_not_oa": 31359,
     "excluded_non_english": 4834,
-    "excluded_k12_only": 31,
+    "excluded_k12_only": 35,
     "excluded_wrong_date": 0,
-    "post_chatgpt": 459,
-    "pre_chatgpt": 61,
+    "post_chatgpt": 497,
+    "pre_chatgpt": 64,
     "per_adapter": {
       "dean_provided": 6,
       "eric": 16177,
@@ -67,9 +67,9 @@
     }
   },
   "stage_runtimes_seconds": {
-    "export_pdf": 0.0008165830076904967,
-    "export_matrix": 0.15990704199066386
+    "export_pdf": 21.96681958400586,
+    "export_matrix": 0.30153966700891033
   },
   "matrix_file": "rrl_matrix.xlsx",
-  "matrix_sha256": "a9bbbaad2704b740c41a37608d98de06b9e68a258a37db08efef8e555953edd2"
+  "matrix_sha256": "2698677ed83bc710540d2e4ce0713d5a4ffd0a478b65a8994ef3cb538ae8c59b"
 }

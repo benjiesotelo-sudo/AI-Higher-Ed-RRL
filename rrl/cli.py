@@ -61,24 +61,27 @@ def dedup(ctx, review, merge):
     click.echo(f"raw_records: {summary['raw_records']}; papers: {summary['papers_created']}")
 
 @main.command()
-@click.option("--only", default=None, help="doaj|unpaywall|openalex")
+@click.option("--only", default=None, help="doaj|unpaywall|openalex|eric")
 @click.pass_context
 def enrich(ctx, only):
-    """Attach DOAJ + Unpaywall + OpenAlex quality flags."""
+    """Attach DOAJ + Unpaywall + OpenAlex + ERIC quality flags."""
     from rrl.db import connect, init_schema
     from rrl.config import Settings
     from rrl.http import build_session
     from rrl.logging_setup import configure_logging
     from rrl.enrich.openalex_flags import enrich_from_openalex_payloads
+    from rrl.enrich.eric_flags import enrich_from_eric_payloads
     from rrl.enrich.doaj import enrich_papers_with_doaj
     from rrl.enrich.unpaywall import enrich_papers_with_unpaywall
     configure_logging("enrich", DEFAULT_LOG_DIR)
     settings = Settings.from_env()
     conn = connect(ctx.obj["db"]); init_schema(conn)
     sess = build_session(settings.openalex_email)
-    passes = (only or "openalex,doaj,unpaywall").split(",")
+    passes = (only or "openalex,eric,doaj,unpaywall").split(",")
     if "openalex" in passes:
         s = enrich_from_openalex_payloads(conn); click.echo(f"openalex: {s}")
+    if "eric" in passes:
+        s = enrich_from_eric_payloads(conn); click.echo(f"eric: {s}")
     if "doaj" in passes:
         s = enrich_papers_with_doaj(conn, sess); click.echo(f"doaj: {s}")
     if "unpaywall" in passes:
@@ -147,10 +150,12 @@ def run_all(ctx, skip):
         settings = Settings.from_env()
         sess = build_session(settings.openalex_email)
         from rrl.enrich.openalex_flags import enrich_from_openalex_payloads
+        from rrl.enrich.eric_flags import enrich_from_eric_payloads
         from rrl.enrich.doaj import enrich_papers_with_doaj
         from rrl.enrich.unpaywall import enrich_papers_with_unpaywall
         click.echo("== enrich ==")
         enrich_from_openalex_payloads(conn)
+        enrich_from_eric_payloads(conn)
         enrich_papers_with_doaj(conn, sess)
         enrich_papers_with_unpaywall(conn, sess, settings.openalex_email)
 
