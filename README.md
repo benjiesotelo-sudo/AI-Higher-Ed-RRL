@@ -18,16 +18,64 @@ A reproducible, auditable corpus you can read and cite. Two output tiers — `hi
 
 ## How it works
 
-A single `rrl` command kicks off the whole pipeline. It queries three academic search APIs, collapses cross-database duplicates into one canonical row per paper, verifies each paper is open-access and peer-reviewed, filters down to the in-scope subset by topic and date, downloads the full-text PDFs, and writes the result as a spreadsheet plus a foldered library of PDFs. Every stage is idempotent — interrupt it and the next run picks up where it left off.
+A single `rrl` command kicks off the whole pipeline. Records flow from four input sources through a deduplication cascade, a quality-flag enrichment pass, a seven-stage screening cascade, and a quality-tier triage before being downloaded and exported. Every stage is idempotent — interrupt it and the next run picks up where it left off.
+
+The diagram below uses three shape conventions: **rounded boxes = external services**, **rectangles = pipeline stages or outputs**, **diamonds = decisions**. Dashed lines mark either an enrichment-time service lookup or an exclusion branch out of the main flow.
 
 ```mermaid
-flowchart LR
-    A([Search OpenAlex,<br/>ERIC, Semantic Scholar]) --> B[Harvest records]
-    B --> C[Merge duplicates<br/>across databases]
-    C --> D[Verify open-access<br/>+ peer-review]
-    D --> E[Filter by topic,<br/>date, language]
-    E --> F[Download PDFs]
-    F --> G[(rrl_matrix.xlsx<br/>+ downloaded PDFs)]
+flowchart TD
+    %% External search sources
+    SVC_OA([OpenAlex API])
+    SVC_ERIC([ERIC API])
+    SVC_S2([Semantic Scholar API])
+    HAND([Supplementary<br/>hand-search])
+
+    %% Harvest + dedup
+    SVC_OA --> HARV
+    SVC_ERIC --> HARV
+    SVC_S2 --> HARV
+    HAND --> HARV
+    HARV[Harvest records<br/>AI × HE query, 2020–2026, English] --> DEDUP[Dedup cascade<br/>DOI → OpenAlex ID → title+year+author signature]
+
+    %% Enrichment
+    DEDUP --> ENR[Lift quality flags<br/>is_oa · oa_pdf_url · is_peer_reviewed · is_in_doaj]
+    SVC_DOAJ([DOAJ]) -. is_in_doaj per ISSN .-> ENR
+    SVC_UPW([Unpaywall]) -. best OA URL per DOI .-> ENR
+    SVC_ERICF([files.eric.ed.gov]) -. ED-prefix native PDF URL .-> ENR
+
+    %% Screening cascade
+    ENR --> F1{Year 2020–2026?}
+    F1 -- no --> X1[excluded: wrong_date]
+    F1 -- yes --> F2{English?}
+    F2 -- no --> X2[excluded: non_english]
+    F2 -- yes --> F3{Open-access<br/>with PDF URL?}
+    F3 -- no --> X3[excluded: not_oa]
+    F3 -- yes --> F4{Topic match<br/>AI × HE?}
+    F4 -- no --> X4[excluded: off_topic]
+    F4 -- yes --> F5{Not K-12-only?}
+    F5 -- no --> X5[excluded: k12_only]
+    F5 -- yes --> F6{Peer-reviewed?}
+    F6 -- no --> X6[excluded: not_peer_reviewed]
+    F6 -- yes --> F7{Empirical?<br/>not a review or editorial}
+    F7 -- no --> X7[excluded: non_empirical]
+    F7 -- yes --> TIER{Quality-tier triage}
+    TIER -- standard work-type<br/>+ peer-review or DOAJ --> HC[high_confidence]
+    TIER -- borderline<br/>predatory list,<br/>non-standard work-type,<br/>K-12/HE mixed,<br/>CS-curriculum signal --> RN[review_needed]
+
+    %% Retrieval + output
+    HC --> DL[Download PDFs<br/>validate %PDF magic-bytes + 10 KB min]
+    RN --> DL
+    SVC_UPW -. retrieval URL .-> DL
+    SVC_OA -. retrieval URL fallback .-> DL
+    SVC_CORE([CORE]) -. last-resort PDF lookup .-> DL
+    DL --> OUT[rrl_matrix.xlsx<br/>+ pdfs/year/paper_id.pdf<br/>+ run_manifest.json<br/>+ logs/*.jsonl]
+
+    classDef service fill:#e6f0ff,stroke:#456;
+    classDef exclusion fill:#fff3e6,stroke:#a86,stroke-dasharray:4 2;
+    classDef output fill:#e8f5e9,stroke:#487048;
+    class SVC_OA,SVC_ERIC,SVC_S2,HAND,SVC_DOAJ,SVC_UPW,SVC_ERICF,SVC_CORE service;
+    class X1,X2,X3,X4,X5,X6,X7 exclusion;
+    class HC,RN,OUT output;
 ```
 
 ## How to run
@@ -152,17 +200,140 @@ If you only need a smoke test, `rrl harvest --only openalex --since 2026-01-01` 
 7. **No content interpretation.** Methods, sample, findings, theoretical framework — those columns are intentionally absent. They cannot be auto-extracted reliably.
 8. **English-only.** Significant work in Mandarin, Spanish, Portuguese, and other languages is excluded.
 
-## Architecture
+## For Developers
 
-```
-harvest → dedup → enrich → screen → export
-   ↓        ↓        ↓        ↓        ↓
-            SQLite (data/rrl.sqlite)
-                                       → pdfs/<year>/*.pdf
-                                       → output/rrl_matrix.xlsx
-                                       → output/run_manifest.json
-                                       → README.md (auto-generated block below)
-                                       → logs/*.jsonl
+This section maps each pipeline stage in the "How it works" diagram to the module(s) that implement it. Shape conventions are the same — **rounded = external services**, **rectangles = code files or modules**, **cylinders = persistent storage / output artifacts**. Solid arrows mark a direct function call or import; dashed arrows mark a read/write against shared state (SQLite, logs, the rate-limited HTTP session, configuration).
+
+```mermaid
+flowchart TD
+    %% Entry
+    CLI[rrl/cli.py<br/>command dispatch:<br/>harvest · dedup · enrich · screen · export · all · status]
+
+    %% Search adapters
+    subgraph SEARCH["rrl/search/ — adapter package"]
+        SBASE[base.py<br/>RawRecord · QuerySpec ·<br/>title/DOI normalisation]
+        SOA[openalex.py]
+        SERIC[eric.py]
+        SS2[semantic_scholar.py]
+        SCR[crossref.py]
+        SCORE[core_api.py]
+    end
+
+    %% Dedup
+    subgraph DEDUP_PKG["rrl/dedup/"]
+        DG[grouping.py<br/>dedup_key + canonical builder]
+        DM[merge.py]
+        DR[review.py]
+    end
+
+    %% Enrich
+    subgraph ENRICH_PKG["rrl/enrich/"]
+        EOA[openalex_flags.py]
+        EERIC[eric_flags.py]
+        EDOAJ[doaj.py]
+        EUPW[unpaywall.py]
+    end
+
+    %% Screen
+    subgraph SCREEN_PKG["rrl/screen/"]
+        SCR_X[runner.py]
+        SCR_R[rules.py<br/>evaluate_paper · decide_quality_tier]
+    end
+
+    %% Output
+    subgraph OUTPUT_PKG["rrl/output/"]
+        OR[runner.py]
+        OM[matrix.py]
+        OP[pdf.py]
+        OMF[manifest.py]
+        OREADME[readme.py]
+    end
+
+    %% Wiring
+    CLI -- harvest --> HARV[rrl/harvest.py]
+    CLI -- dedup --> DG
+    CLI -- enrich --> EOA
+    CLI -- enrich --> EERIC
+    CLI -- enrich --> EDOAJ
+    CLI -- enrich --> EUPW
+    CLI -- screen --> SCR_X
+    CLI -- export --> OR
+
+    HARV --> SOA
+    HARV --> SERIC
+    HARV --> SS2
+    SCR_X --> SCR_R
+    OR --> OM
+    OR --> OP
+    OR --> OMF
+    OR --> OREADME
+    OP --> SCORE
+
+    %% External services
+    SOA -- api.openalex.org --> SVC_OA([OpenAlex])
+    SERIC -- api.ies.ed.gov --> SVC_ERIC([ERIC])
+    SS2 -- api.semanticscholar.org --> SVC_S2([Semantic Scholar])
+    SCR -- api.crossref.org --> SVC_CR([CrossRef])
+    SCORE -- api.core.ac.uk --> SVC_CORE([CORE])
+    EDOAJ -- doaj.org/api --> SVC_DOAJ([DOAJ])
+    EUPW -- api.unpaywall.org --> SVC_UPW([Unpaywall])
+
+    %% Shared / cross-cutting
+    subgraph SHARED["Shared modules"]
+        DB_F[db.py<br/>SQLite + schema]
+        HTTP_F[http.py<br/>rate-limited session]
+        CFG_F[config.py<br/>term lists + Settings]
+        LOG_F[logging_setup.py<br/>structured JSONL]
+    end
+
+    HTTP_F -.-> SOA
+    HTTP_F -.-> SERIC
+    HTTP_F -.-> SS2
+    HTTP_F -.-> EDOAJ
+    HTTP_F -.-> EUPW
+    HTTP_F -.-> SCORE
+    HTTP_F -.-> SCR
+    CFG_F -.-> HARV
+    CFG_F -.-> SCR_R
+    LOG_F -.-> HARV
+    LOG_F -.-> SCR_X
+    LOG_F -.-> OR
+
+    %% Storage + artifacts
+    SQLDB[(data/rrl.sqlite)]
+    XLSX[(output/rrl_matrix.xlsx)]
+    PDF_FS[(pdfs/year/paper_id.pdf)]
+    LOGS[(logs/*.jsonl)]
+    MANI[(output/run_manifest.json)]
+
+    HARV -. writes raw_records .-> SQLDB
+    DG -. writes papers + paper_sources .-> SQLDB
+    EOA -. updates flags .-> SQLDB
+    EERIC -. updates flags .-> SQLDB
+    EDOAJ -. updates is_in_doaj .-> SQLDB
+    EUPW -. updates oa_pdf_url .-> SQLDB
+    SCR_X -. updates included + quality_tier .-> SQLDB
+    OR -. reads .-> SQLDB
+    DB_F -.owns schema.-> SQLDB
+    OM --> XLSX
+    OP --> PDF_FS
+    OMF --> MANI
+    LOG_F -.-> LOGS
+
+    %% Sidecar packages
+    TESTS[tests/<br/>120+ pytest cases<br/>mocked HTTP via responses lib]
+    SCRIPTS[scripts/<br/>one-shot helpers:<br/>supplementary-PDF ingest,<br/>build_manuscript_docx]
+
+    TESTS -. exercises every stage .-> CLI
+    SCRIPTS -. imports from .-> ENRICH_PKG
+    SCRIPTS -. imports from .-> SCREEN_PKG
+
+    classDef service fill:#e6f0ff,stroke:#456;
+    classDef shared fill:#fff8e6,stroke:#8a7;
+    classDef storage fill:#f0e6ff,stroke:#75a;
+    class SVC_OA,SVC_ERIC,SVC_S2,SVC_CR,SVC_CORE,SVC_DOAJ,SVC_UPW service;
+    class DB_F,HTTP_F,CFG_F,LOG_F shared;
+    class SQLDB,XLSX,PDF_FS,LOGS,MANI storage;
 ```
 
 Full design spec: `docs/superpowers/specs/2026-05-14-rrl-pipeline-design.md`.
