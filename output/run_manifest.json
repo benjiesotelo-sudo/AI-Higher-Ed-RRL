@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "pipeline_version": "0.1.0",
-  "run_id": "2fa63944-cbc5-4595-ad90-057c956f1ce4",
-  "run_at_utc": "2026-05-14T22:27:54.507256+00:00",
+  "run_id": "b9841383-f12d-4e08-9b1d-c758f17e5bff",
+  "run_at_utc": "2026-05-18T04:00:28.042016+00:00",
   "query_terms": {
     "ai_terms": [
       "artificial intelligence",
@@ -44,31 +44,32 @@
   "query_terms_hash": "6fe20a37d069c57218b1fa3ac4cbaf4bcdc2833fe2bbf64321a60891f9da6a96",
   "screen_rule_version": "v1",
   "counts": {
-    "raw_records": 63298,
-    "papers_after_dedup": 62090,
-    "papers_after_screen_included": 516,
-    "papers_in_matrix": 420,
-    "pdfs_downloaded_cumulative": 420,
+    "raw_records": 63304,
+    "papers_after_dedup": 62091,
+    "papers_after_screen_included": 520,
+    "papers_in_matrix": 424,
+    "pdfs_downloaded_cumulative": 426,
     "pdfs_failed_cumulative": 96,
-    "high_confidence": 44,
+    "high_confidence": 48,
     "review_needed": 376,
     "excluded_off_topic": 1024,
-    "excluded_not_oa": 37475,
+    "excluded_not_oa": 37470,
     "excluded_non_english": 4835,
     "excluded_k12_only": 31,
     "excluded_wrong_date": 0,
-    "post_chatgpt": 455,
+    "post_chatgpt": 459,
     "pre_chatgpt": 61,
     "per_adapter": {
+      "dean_provided": 6,
       "eric": 16177,
       "openalex": 6816,
       "s2": 40305
     }
   },
   "stage_runtimes_seconds": {
-    "export_pdf": 0.025253666997741675,
-    "export_matrix": 0.24049037499935366
+    "export_pdf": 0.028911458008224145,
+    "export_matrix": 0.25164820899954066
   },
   "matrix_file": "rrl_matrix.xlsx",
-  "matrix_sha256": "839dbb1ce6e6feb249a0840f09ebec79a4be70d33202d8b7b403e9ce10669a8b"
+  "matrix_sha256": "15592ecfcc5949628755573461e0721c624b3d32b12a6b6d345e84f0252e44a2"
 }
