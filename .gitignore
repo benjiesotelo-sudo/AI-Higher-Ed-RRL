@@ -14,3 +14,9 @@ output/~$*.xlsx
 .coverage
 .DS_Store
 .Rhistory
+
+# Private manuscript work-in-progress
+# Use Manuscript/* (not Manuscript/) so the .gitkeep exception can re-include it;
+# excluding the directory itself stops git from descending into it at all.
+Manuscript/*
+!Manuscript/.gitkeep

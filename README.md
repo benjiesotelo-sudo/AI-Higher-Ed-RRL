@@ -134,7 +134,7 @@ If you only need a smoke test, `rrl harvest --only openalex --since 2026-01-01` 
 3. **Topic boundary is regex-based.** The K-12-only / AI-as-curriculum exclusions and the AI/HE inclusion are keyword filters. The `review_needed` tier exists to surface borderline calls for human judgment.
 4. **Predatory-venue detection is best-effort.** No comprehensive free machine-readable list exists. We use DOAJ membership + a tiny blocklist of universally-acknowledged repeat offenders. Anything dubious lands in `review_needed`.
 5. **Dedup has known gaps.** Preprint/journal pairs without shared DOIs may both appear; `rrl dedup --review` surfaces likely duplicates for manual merge.
-6. **Peer-review signal is uneven.** OpenAlex and ERIC carry explicit peer-review flags and are trusted; S2-only papers without an OpenAlex match cannot be confirmed peer-reviewed and are excluded by the dean's strict gate.
+6. **Peer-review signal is uneven.** OpenAlex and ERIC carry explicit peer-review flags and are trusted; S2-only papers without an OpenAlex match cannot be confirmed peer-reviewed and are excluded by the protocol's strict gate.
 7. **No content interpretation.** Methods, sample, findings, theoretical framework — those columns are intentionally absent. They cannot be auto-extracted reliably.
 8. **English-only.** Significant work in Mandarin, Spanish, Portuguese, and other languages is excluded.
 
@@ -166,10 +166,10 @@ No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --s
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
 
-_Last run: 2026-05-18T04:44:39.966271+00:00_
+_Last run: 2026-05-18T05:19:36.397572+00:00_
 
 **Corpus summary**
-- raw_records: 63304
+- raw_records: 63299
 - after dedup: 62291
 - after screen (included): 561
 - in matrix: 452
@@ -190,14 +190,14 @@ _Last run: 2026-05-18T04:44:39.966271+00:00_
 - wrong_date: 0
 
 **Stage runtimes (seconds)**
-- export_pdf: 22.0
+- export_pdf: 0.0
 - export_matrix: 0.3
 
 **By source adapter** _(records contributed before dedup)_
-- dean_provided: 6
 - eric: 16177
 - openalex: 6816
 - s2: 40305
+- supplementary_search: 1
 
 **PDF download success**
 - downloaded: 454
