@@ -166,32 +166,32 @@ No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --s
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
 
-_Last run: 2026-05-18T04:30:29.574585+00:00_
+_Last run: 2026-05-18T04:44:39.966271+00:00_
 
 **Corpus summary**
 - raw_records: 63304
 - after dedup: 62291
-- after screen (included): 520
-- in matrix: 424
+- after screen (included): 561
+- in matrix: 452
 
 **By quality tier**
-- high_confidence: 48
+- high_confidence: 76
 - review_needed: 376
 
 **By era**
-- post_chatgpt: 459
-- pre_chatgpt: 61
+- post_chatgpt: 497
+- pre_chatgpt: 64
 
 **Exclusions**
-- off_topic: 1024
-- not_oa: 37671
+- off_topic: 7215
+- not_oa: 31359
 - non_english: 4834
-- k12_only: 31
+- k12_only: 35
 - wrong_date: 0
 
 **Stage runtimes (seconds)**
-- export_pdf: 0.0
-- export_matrix: 0.2
+- export_pdf: 22.0
+- export_matrix: 0.3
 
 **By source adapter** _(records contributed before dedup)_
 - dean_provided: 6
@@ -200,7 +200,7 @@ _Last run: 2026-05-18T04:30:29.574585+00:00_
 - s2: 40305
 
 **PDF download success**
-- downloaded: 426
-- failed: 96
-- success rate: 81.6%
+- downloaded: 454
+- failed: 109
+- success rate: 80.6%
 <!-- END AUTO-GENERATED -->
