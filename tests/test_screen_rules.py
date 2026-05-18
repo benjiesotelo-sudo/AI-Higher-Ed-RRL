@@ -34,11 +34,6 @@ def test_evaluate_rejects_non_english():
          "title": "ChatGPT en universidad", "abstract": "", "venue": ""}
     assert evaluate_paper(p)["exclusion_reason"] == "non_english"
 
-def test_evaluate_rejects_not_oa():
-    p = {"year": 2023, "language": "en", "is_oa": 0, "oa_pdf_url": None,
-         "title": "ChatGPT in university", "abstract": "", "venue": ""}
-    assert evaluate_paper(p)["exclusion_reason"] == "not_oa"
-
 def test_evaluate_rejects_off_topic():
     p = {"year": 2023, "language": "en", "is_oa": 1, "oa_pdf_url": "u",
          "title": "Tomato cultivation in Andalusia", "abstract": "", "venue": ""}
@@ -196,3 +191,45 @@ def test_methodology_exclusion_rejects_conceptual_framework_title():
         abstract="",
         work_type="journal-article",
     ) == "non_empirical"
+
+
+def test_paywalled_paper_with_full_signals_is_included():
+    """With OA constraint lifted, a paywalled paper that passes every other
+    gate (year, language, topic, peer-review, empirical) should be included."""
+    from rrl.screen.rules import evaluate_paper
+    paper = {
+        "title": "ChatGPT in university classrooms: a mixed-methods study",
+        "abstract": "We surveyed 200 undergraduates on their ChatGPT use in higher education courses. Results indicate ...",
+        "venue": "Computers & Education",
+        "year": 2024,
+        "language": "en",
+        "is_oa": 0,          # paywalled — no longer disqualifying
+        "oa_pdf_url": None,
+        "is_peer_reviewed": 1,
+        "is_in_doaj": 0,
+        "work_type": "journal-article",
+        "publisher": "Elsevier",
+    }
+    decision = evaluate_paper(paper)
+    assert decision["included"] == 1, decision
+    assert decision.get("exclusion_reason") is None
+
+
+def test_paywalled_paper_without_oa_url_is_included():
+    """is_oa=1 but no oa_pdf_url is no longer cause for exclusion either."""
+    from rrl.screen.rules import evaluate_paper
+    paper = {
+        "title": "LLMs in faculty professional development",
+        "abstract": "We conducted interviews with 30 professors about LLM adoption in higher education.",
+        "venue": "Studies in Higher Education",
+        "year": 2024,
+        "language": "en",
+        "is_oa": 1,
+        "oa_pdf_url": None,
+        "is_peer_reviewed": 1,
+        "is_in_doaj": 0,
+        "work_type": "journal-article",
+        "publisher": "Taylor & Francis",
+    }
+    decision = evaluate_paper(paper)
+    assert decision["included"] == 1, decision

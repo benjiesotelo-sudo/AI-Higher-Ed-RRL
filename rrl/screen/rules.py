@@ -98,8 +98,6 @@ def evaluate_paper(p: dict) -> dict:
         return {"included": 0, "exclusion_reason": "wrong_date"}
     if (p.get("language") or "").lower() != "en":
         return {"included": 0, "exclusion_reason": "non_english"}
-    if not p.get("is_oa") or not p.get("oa_pdf_url"):
-        return {"included": 0, "exclusion_reason": "not_oa"}
     text = _has_text(p)
     ai_n, he_n, score = topic_hits(text)
     k12_n = len(K12_RE.findall(text))
