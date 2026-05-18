@@ -39,6 +39,9 @@ def test_settings_requires_openalex_email(monkeypatch):
 def test_settings_loads_from_env(monkeypatch):
     monkeypatch.setenv("OPENALEX_EMAIL", "test@example.com")
     monkeypatch.setenv("SEMANTIC_SCHOLAR_API_KEY", "abc123")
+    monkeypatch.delenv("CORE_API_KEY", raising=False)
+    monkeypatch.delenv("ELSEVIER_API_KEY", raising=False)
+    monkeypatch.delenv("ELSEVIER_INSTTOKEN", raising=False)
     s = Settings.from_env()
     assert s.openalex_email == "test@example.com"
     assert s.s2_api_key == "abc123"

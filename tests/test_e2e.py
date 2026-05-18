@@ -12,6 +12,10 @@ from rrl.output.readme import BEGIN_MARK, END_MARK
 def test_full_pipeline_smoke(tmp_path, monkeypatch, fixtures_dir):
     monkeypatch.chdir(tmp_path)
     monkeypatch.setenv("OPENALEX_EMAIL", "t@e.com")
+    monkeypatch.delenv("ELSEVIER_API_KEY", raising=False)
+    monkeypatch.delenv("ELSEVIER_INSTTOKEN", raising=False)
+    monkeypatch.delenv("CORE_API_KEY", raising=False)
+    monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY", raising=False)
 
     oa1 = json.loads((fixtures_dir / "openalex_page1.json").read_text())
     oa2 = json.loads((fixtures_dir / "openalex_page2.json").read_text())
