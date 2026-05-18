@@ -119,6 +119,7 @@ def export(ctx, retry_failed):
         manifest_path=Path("output/run_manifest.json"),
         readme_path=Path("README.md"),
         core_api_key=settings.core_api_key,
+        elsevier_api_key=settings.elsevier_api_key,
         retry_failed=retry_failed,
     )
     click.echo(json.dumps(summary, indent=2, default=str))
@@ -177,6 +178,7 @@ def run_all(ctx, skip):
             manifest_path=Path("output/run_manifest.json"),
             readme_path=Path("README.md"),
             core_api_key=settings.core_api_key,
+            elsevier_api_key=settings.elsevier_api_key,
         )
 
 @main.command()

@@ -40,7 +40,7 @@ def test_download_marks_oa_link_dead_after_failed_attempts(tmp_path):
     responses.add(responses.GET, "https://x/y.pdf", body=b"<html>nope</html>", status=200)
     download_pdfs(conn, build_session("t@e.com"), pdf_root=tmp_path / "pdfs", core_api_key=None)
     row = conn.execute("SELECT pdf_status FROM papers WHERE paper_id='p1'").fetchone()
-    assert row["pdf_status"] == "oa_link_dead"
+    assert row["pdf_status"] == "not_retrievable"
 
 @responses.activate
 def test_download_skips_already_downloaded(tmp_path):
@@ -87,3 +87,96 @@ def test_try_url_works_without_headers(tmp_path):
     ok = _try_url(build_session("t@e.com"), "https://example.org/y.pdf",
                   "test_source", "p1", conn, dest)
     assert ok is True
+
+
+@responses.activate
+def test_download_pdfs_uses_sciencedirect_fallback_for_elsevier_doi(tmp_path):
+    """When OA URL fails and DOI is Elsevier-prefixed, fall through to ScienceDirect."""
+    from rrl.db import connect, init_schema
+    from rrl.http import build_session
+    from rrl.output.pdf import download_pdfs
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    conn.execute(
+        "INSERT INTO papers (paper_id, doi, title, year, oa_pdf_url, included, "
+        "authors_json, first_seen_at, last_updated_at) "
+        "VALUES ('p1','10.1016/j.test.2024.100001','T',2024,"
+        "'https://dead.example/oa.pdf',1,'[]','now','now')"
+    )
+    # OA URL fails
+    responses.add(responses.GET, "https://dead.example/oa.pdf", status=404)
+    # ScienceDirect succeeds
+    pdf_bytes = b"%PDF-1.4\n" + b"x" * (11 * 1024)
+    responses.add(
+        responses.GET,
+        "https://api.elsevier.com/content/article/doi/10.1016/j.test.2024.100001",
+        body=pdf_bytes,
+        headers={"Content-Type": "application/pdf"},
+        status=200,
+    )
+    summary = download_pdfs(
+        conn, build_session("t@e.com"),
+        pdf_root=tmp_path / "pdfs",
+        core_api_key=None,
+        elsevier_api_key="fake-key",
+    )
+    assert summary["downloaded"] == 1
+    # Verify the X-ELS-APIKey header was sent on the ScienceDirect call
+    sd_call = [c for c in responses.calls if "api.elsevier.com" in c.request.url][0]
+    assert sd_call.request.headers.get("X-ELS-APIKey") == "fake-key"
+    assert sd_call.request.headers.get("Accept") == "application/pdf"
+
+
+@responses.activate
+def test_download_pdfs_skips_sciencedirect_for_non_elsevier_doi(tmp_path):
+    """A non-10.1016/ DOI must not trigger a ScienceDirect call."""
+    from rrl.db import connect, init_schema
+    from rrl.http import build_session
+    from rrl.output.pdf import download_pdfs
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    conn.execute(
+        "INSERT INTO papers (paper_id, doi, title, year, oa_pdf_url, included, "
+        "authors_json, first_seen_at, last_updated_at) "
+        "VALUES ('p1','10.1111/hequ.12345','T',2024,"
+        "'https://dead.example/oa.pdf',1,'[]','now','now')"
+    )
+    responses.add(responses.GET, "https://dead.example/oa.pdf", status=404)
+    summary = download_pdfs(
+        conn, build_session("t@e.com"),
+        pdf_root=tmp_path / "pdfs",
+        core_api_key=None,
+        elsevier_api_key="fake-key",
+    )
+    assert summary["downloaded"] == 0
+    assert summary["failed"] == 1
+    # Only the OA URL was tried — no ScienceDirect request
+    sd_calls = [c for c in responses.calls if "api.elsevier.com" in c.request.url]
+    assert sd_calls == []
+
+
+@responses.activate
+def test_download_pdfs_marks_not_retrievable_when_all_sources_fail(tmp_path):
+    """All sources fail → pdf_status becomes 'not_retrievable' (not 'oa_link_dead')."""
+    from rrl.db import connect, init_schema
+    from rrl.http import build_session
+    from rrl.output.pdf import download_pdfs
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    conn.execute(
+        "INSERT INTO papers (paper_id, doi, title, year, oa_pdf_url, included, "
+        "authors_json, first_seen_at, last_updated_at) "
+        "VALUES ('p1','10.1016/j.test.2024.999','T',2024,"
+        "'https://dead.example/oa.pdf',1,'[]','now','now')"
+    )
+    responses.add(responses.GET, "https://dead.example/oa.pdf", status=404)
+    responses.add(
+        responses.GET,
+        "https://api.elsevier.com/content/article/doi/10.1016/j.test.2024.999",
+        status=403,
+    )
+    download_pdfs(
+        conn, build_session("t@e.com"),
+        pdf_root=tmp_path / "pdfs",
+        core_api_key=None,
+        elsevier_api_key="fake-key",
+    )
+    status = conn.execute("SELECT pdf_status FROM papers WHERE paper_id='p1'").fetchone()["pdf_status"]
+    assert status == "not_retrievable"
