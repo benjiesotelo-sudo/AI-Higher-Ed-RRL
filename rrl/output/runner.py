@@ -18,20 +18,31 @@ def _counts(conn: sqlite3.Connection) -> dict:
         "raw_records": n("SELECT COUNT(*) FROM raw_records"),
         "papers_after_dedup": n("SELECT COUNT(*) FROM papers"),
         "papers_after_screen_included": n("SELECT COUNT(*) FROM papers WHERE included = 1"),
+        # papers_in_matrix is now everything included + non-merged (pdf_status no
+        # longer filters); kept the same name for stability.
         "papers_in_matrix": n(
             """SELECT COUNT(*) FROM papers
-               WHERE included = 1 AND pdf_status = 'downloaded'
+               WHERE included = 1
                AND paper_id NOT IN (SELECT loser_id FROM paper_merges)"""
         ),
         "pdfs_downloaded_cumulative": n("SELECT COUNT(*) FROM papers WHERE pdf_status='downloaded'"),
-        "pdfs_failed_cumulative": n("SELECT COUNT(*) FROM papers WHERE pdf_status='oa_link_dead'"),
-        "high_confidence": n("SELECT COUNT(*) FROM papers WHERE quality_tier='high_confidence' AND pdf_status='downloaded' AND paper_id NOT IN (SELECT loser_id FROM paper_merges)"),
-        "review_needed": n("SELECT COUNT(*) FROM papers WHERE quality_tier='review_needed' AND pdf_status='downloaded' AND paper_id NOT IN (SELECT loser_id FROM paper_merges)"),
+        "pdfs_not_retrievable_cumulative": n("SELECT COUNT(*) FROM papers WHERE pdf_status='not_retrievable'"),
+        "high_confidence": n(
+            """SELECT COUNT(*) FROM papers
+               WHERE quality_tier='high_confidence' AND included=1
+               AND paper_id NOT IN (SELECT loser_id FROM paper_merges)"""
+        ),
+        "review_needed": n(
+            """SELECT COUNT(*) FROM papers
+               WHERE quality_tier='review_needed' AND included=1
+               AND paper_id NOT IN (SELECT loser_id FROM paper_merges)"""
+        ),
         "excluded_off_topic": n("SELECT COUNT(*) FROM papers WHERE exclusion_reason='off_topic'"),
-        "excluded_not_oa":    n("SELECT COUNT(*) FROM papers WHERE exclusion_reason='not_oa'"),
         "excluded_non_english": n("SELECT COUNT(*) FROM papers WHERE exclusion_reason='non_english'"),
         "excluded_k12_only":  n("SELECT COUNT(*) FROM papers WHERE exclusion_reason='k12_only'"),
         "excluded_wrong_date": n("SELECT COUNT(*) FROM papers WHERE exclusion_reason='wrong_date'"),
+        "excluded_not_peer_reviewed": n("SELECT COUNT(*) FROM papers WHERE exclusion_reason='not_peer_reviewed'"),
+        "excluded_non_empirical": n("SELECT COUNT(*) FROM papers WHERE exclusion_reason='non_empirical'"),
         "post_chatgpt": n("SELECT COUNT(*) FROM papers WHERE era_tag='post_chatgpt' AND included=1"),
         "pre_chatgpt":  n("SELECT COUNT(*) FROM papers WHERE era_tag='pre_chatgpt'  AND included=1"),
     }
@@ -43,12 +54,9 @@ def _counts(conn: sqlite3.Connection) -> dict:
 
 def _format_appendix(counts: dict, runtimes: dict, run_at: str, pdf_summary: dict | None = None) -> str:
     per_adapter = counts.get("per_adapter", {})
-    # Report cumulative PDF stats from the DB (counts dict) rather than just
-    # this run's attempts. Re-running export on an already-populated corpus
-    # otherwise prints "0 downloaded / 0 failed", which is misleading.
     downloaded = counts.get("pdfs_downloaded_cumulative", 0)
-    failed = counts.get("pdfs_failed_cumulative", 0)
-    rate = 100.0 * downloaded / max(downloaded + failed, 1)
+    not_retrievable = counts.get("pdfs_not_retrievable_cumulative", 0)
+    rate = 100.0 * downloaded / max(downloaded + not_retrievable, 1)
     lines = [
         "## Run statistics",
         "",
@@ -70,10 +78,11 @@ def _format_appendix(counts: dict, runtimes: dict, run_at: str, pdf_summary: dic
         "",
         "**Exclusions**",
         f"- off_topic: {counts['excluded_off_topic']}",
-        f"- not_oa: {counts['excluded_not_oa']}",
         f"- non_english: {counts['excluded_non_english']}",
         f"- k12_only: {counts['excluded_k12_only']}",
         f"- wrong_date: {counts['excluded_wrong_date']}",
+        f"- not_peer_reviewed: {counts['excluded_not_peer_reviewed']}",
+        f"- non_empirical: {counts['excluded_non_empirical']}",
         "",
         "**Stage runtimes (seconds)**",
         *(f"- {k}: {v:.1f}" for k, v in runtimes.items()),
@@ -81,9 +90,9 @@ def _format_appendix(counts: dict, runtimes: dict, run_at: str, pdf_summary: dic
         "**By source adapter** _(records contributed before dedup)_",
         *(f"- {adapter}: {n}" for adapter, n in sorted(per_adapter.items())),
         "",
-        "**PDF download success**",
+        "**PDF retrieval**",
         f"- downloaded: {downloaded}",
-        f"- failed: {failed}",
+        f"- not_retrievable: {not_retrievable}",
         f"- success rate: {rate:.1f}%",
     ]
     return "\n".join(lines)
