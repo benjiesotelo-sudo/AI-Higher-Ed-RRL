@@ -31,20 +31,27 @@ def test_matrix_has_two_sheets_and_expected_columns(tmp_path):
     hc = wb["high_confidence"]
     headers = [c.value for c in hc[1]]
     assert headers == MATRIX_COLUMNS
+    assert "pdf_status" in headers
     assert hc.cell(row=2, column=1).value == "p1"
     rn = wb["review_needed"]
     assert rn.cell(row=2, column=1).value == "p2"
 
-def test_matrix_excludes_unincluded_and_undownloaded_and_merged(tmp_path):
+def test_matrix_excludes_unincluded_and_merged_but_includes_unretrievable(tmp_path):
+    """After the OA pivot the matrix includes EVERY included, non-merged paper
+    regardless of pdf_status. The pdf_status column tells the reader whether
+    the file is downloaded / not_retrievable."""
     conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
     _seed(conn, "p1", "high_confidence")
     _seed(conn, "p_excluded", "high_confidence", included=0)
-    _seed(conn, "p_no_pdf", "high_confidence", pdf_status="oa_link_dead", pdf_filename=None)
+    _seed(conn, "p_not_retrievable", "high_confidence",
+          pdf_status="not_retrievable", pdf_filename=None)
     _seed(conn, "p_merged", "high_confidence")
-    conn.execute("INSERT INTO paper_merges (loser_id, winner_id, merged_at, merged_by) VALUES ('p_merged','p1','now','manual')")
+    conn.execute("INSERT INTO paper_merges (loser_id, winner_id, merged_at, merged_by) "
+                 "VALUES ('p_merged','p1','now','manual')")
     out = tmp_path / "out/matrix.xlsx"
     write_matrix(conn, out)
     wb = load_workbook(out)
     hc = wb["high_confidence"]
     ids = [hc.cell(row=i, column=1).value for i in range(2, hc.max_row + 1)]
-    assert ids == ["p1"]
+    # p1 (downloaded) AND p_not_retrievable both appear; excluded + merged excluded.
+    assert set(ids) == {"p1", "p_not_retrievable"}
