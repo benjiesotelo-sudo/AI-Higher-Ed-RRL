@@ -55,16 +55,23 @@ class ERICAdapter:
             start += ROWS
 
     def _parse(self, d: dict) -> RawRecord:
-        title_list = d.get("title") or [""]
-        desc_list = d.get("description") or []
+        # ERIC returns some multivalued fields as scalars when there's a single
+        # value (title, description, publisher) and as lists when multivalued
+        # (author, language). Coerce to first-element-or-self so both shapes work.
+        def first(v):
+            if v is None:
+                return None
+            if isinstance(v, list):
+                return v[0] if v else None
+            return v
         return RawRecord(
             external_id=d["id"],
             doi=None,
-            title=title_list[0] if title_list else "",
+            title=first(d.get("title")) or "",
             authors=[_parse_author(a) for a in (d.get("author") or [])],
             year=d.get("publicationdateyear"),
-            venue=(d.get("publisher") or [None])[0],
-            abstract=desc_list[0] if desc_list else None,
-            language="en" if (d.get("language") or ["English"])[0].lower().startswith("eng") else None,
+            venue=first(d.get("publisher")),
+            abstract=first(d.get("description")),
+            language="en" if (first(d.get("language")) or "English").lower().startswith("eng") else None,
             raw_payload=d,
         )
