@@ -4,7 +4,71 @@ Running log of session-level work on the AI in Higher Ed RRL project. Newest at 
 
 ---
 
-## 2026-05-18 — Diagnosis, dean corpus, manuscript scaffold
+## 2026-05-18 (PM) — ERIC re-harvest + PRISMA reporting
+
+Two sequential tasks. All committed locally; nothing pushed.
+
+### Task 1 — ERIC re-harvest with parser fix (commits `74fc3d4`, `c8e665f`)
+
+Cleared 16,177 corrupt-title ERIC raw records and 15,941 orphan papers (left over from the pre-fix parser bug), then re-harvested ERIC 2020–2026. Subsequently re-ran dedup → enrich → screen → export.
+
+**ERIC pipeline counts:**
+- Raws harvested: **16,177** (real titles; 16,098 distinct title_norms vs. 32 pre-fix)
+- Raws merging into existing dedup groups: **36**
+- ERIC-only new papers: **16,141**
+- ERIC-touched papers in the included corpus: **0**
+
+**Why zero?** ERIC records carry no DOI, so Unpaywall can't verify OA; the screen's `not_oa` gate excludes every ERIC paper. Of the 16,177 ERIC papers, **~1,087 would otherwise be candidates** (pass topic, report `peerreviewed='T'`, year 2020–2026). The fix would be to construct ERIC's own native PDF URLs (`https://files.eric.ed.gov/fulltext/<ID>.pdf` for ED-prefix records) in the parser or an enrichment pass. User chose to defer this for now; recorded as a follow-up.
+
+**`work_type='article'` allowlist fix.** While re-screening, discovered that OpenAlex now returns `work_type='article'` for what used to be `'journal-article'`. The screen's quality-tier allowlist and the OpenAlex enrichment's `PEER_REVIEWED_TYPES` set didn't recognise the new shape, silently demoting the 4 included dean-curated Emerald papers to `review_needed`. Added `'article'` to both sets; regression test added at `tests/test_screen_rules.py:test_openalex_modern_article_type_is_high_confidence`.
+
+**Final matrix counts** (unchanged from previous session, since ERIC contributed 0 and the work_type fix restored the dean papers to their intended tier):
+- papers_in_matrix: **424**
+- high_confidence: **48** (44 prior + 4 dean)
+- review_needed: **376**
+
+**Confirmed for the user:** the 5 dean-duplicate paper_ids had zero `pdf_attempts` rows from the original pipeline (they were excluded as `not_oa` before any download attempt), so the dean's PDFs are the only copies. They stay.
+
+### Task 2 — PRISMA reporting data + manuscript updates (commit `4c51f2d`)
+
+**New artefact:** `Manuscript/prisma_data.md` — eight sections covering identification, deduplication, enrichment, screening, per-database contribution, source-combination breakdown, quality tiers, and PDF retrieval. Every table is paired inline with the SQL query that produced it so any number can be re-derived against a later database snapshot.
+
+Verified the matrix `source_apis` column is complete (zero blank rows across both sheets). Combinations present in the matrix:
+- `openalex` only: 404
+- `openalex,s2`: 16
+- `dean_provided,s2`: 4
+
+Manuscript revisions:
+- **§2.3 (Information sources)** rewritten to clearly separate search databases (OpenAlex / ERIC / Semantic Scholar / dean-provided) from enrichment + retrieval services (CrossRef for metadata fallback, DOAJ for OA verification, Unpaywall + OpenAlex + CORE for PDF retrieval).
+- **§3.1 (Study selection)** rebuilt around the live snapshot and pointed at `prisma_data.md` for the canonical PRISMA flow.
+- **§4.3 (Limitations)** corrected: ERIC parser is no longer the limitation — the ERIC OA-URL construction gap is, with the ~1,087-paper recovery upper bound called out.
+
+**Per-database contribution to the 520 included papers** (PRISMA §5):
+| Database | Found-in | Unique |
+|---|---:|---:|
+| OpenAlex | 516 | 496 |
+| ERIC | 0 | 0 |
+| Semantic Scholar | 24 | 0 |
+| Dean-provided | 4 | 0 |
+
+### Hygiene (commit pending in this same session-end push)
+
+- `.gitignore` extended for `.DS_Store`, `.Rhistory`, and Excel lockfiles (`output/~$*.xlsx`).
+- `Manuscript/.Rhistory` untracked (was empty; accidentally captured in the Task 2 commit).
+
+---
+
+## Open items for the next session
+
+1. **ERIC OA-URL wiring** — the biggest remaining lever. Wiring `https://files.eric.ed.gov/fulltext/<external_id>.pdf` for ED-prefix records, plus mapping ERIC's `peerreviewed='T'` → `is_peer_reviewed=1` would surface roughly 1,087 candidate papers for inclusion (subject to methodology-gate confirmation).
+2. **PROSPERO registration decision** (manuscript §2.1).
+3. **Data-extraction template** to finalize before reading 424 PDFs (manuscript §2.6).
+4. **Target journal** to lock in (`Manuscript/README.md`).
+5. **`dean_provided` provenance refinement** — the 4 `dean_provided + s2` papers were also verified in OpenAlex during ingestion but no `openalex` raw_record was created. A small follow-up could add that for cleaner provenance.
+
+---
+
+## 2026-05-18 (AM) — Diagnosis, dean corpus, manuscript scaffold
 
 Three tasks, one session. All committed locally; nothing pushed.
 
