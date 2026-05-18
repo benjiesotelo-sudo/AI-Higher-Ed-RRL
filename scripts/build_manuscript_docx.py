@@ -384,15 +384,14 @@ def add_appendix(doc: Document) -> None:
         ["OpenAlex", "6,816"],
         ["ERIC", "16,177"],
         ["Semantic Scholar", "40,305"],
-        ["Supplementary search", "1"],
-        ["**Total**", "**63,299**"],
+        ["**Total**", "**63,298**"],
     ])
 
     add_heading(doc, "Deduplication", level=3)
     add_table_from_markdown(doc, [
         ["Metric", "Count"],
-        ["Total raw records", "63,299"],
-        ["Unique canonical papers after dedup", "62,291"],
+        ["Total raw records", "63,298"],
+        ["Unique canonical papers after dedup", "62,290"],
         ["Cross-database duplicates", "951"],
         ["Within-database duplicates", "57"],
         ["Surplus raw records collapsed", "1,008"],
@@ -401,32 +400,32 @@ def add_appendix(doc: Document) -> None:
     add_heading(doc, "Screening exclusions", level=3)
     add_table_from_markdown(doc, [
         ["Exclusion reason", "Count"],
-        ["Not open-access (no retrievable OA PDF)", "31,359"],
+        ["Not open-access (no retrievable OA PDF)", "31,364"],
         ["Not peer-reviewed (work-type / source-type signal)", "17,779"],
         ["Non-English", "4,834"],
         ["Off-topic (failed AI × HE token gate)", "7,215"],
-        ["Non-empirical (review / editorial / conceptual)", "508"],
+        ["Non-empirical (review / editorial / conceptual)", "506"],
         ["K-12-only context", "35"],
         ["Wrong publication date (outside 2020–2026)", "0"],
-        ["**Total excluded**", "**61,730**"],
+        ["**Total excluded**", "**61,733**"],
     ])
 
     add_heading(doc, "Final corpus", level=3)
     add_table_from_markdown(doc, [
         ["Metric", "Count"],
-        ["Records included after screening", "561"],
-        ["PDFs successfully downloaded (in matrix)", "452"],
+        ["Records included after screening", "557"],
+        ["PDFs successfully downloaded (in matrix)", "448"],
         ["PDFs failed (`oa_link_dead`)", "109"],
-        ["**Quality tier — high_confidence**", "**76**"],
+        ["**Quality tier — high_confidence**", "**72**"],
         ["**Quality tier — review_needed**", "**376**"],
-        ["Post-ChatGPT papers (2023–2026)", "497"],
+        ["Post-ChatGPT papers (2023–2026)", "493"],
         ["Pre-ChatGPT papers (2020–2022)", "64"],
     ])
 
     add_body_paragraph(
         doc,
         "*Note.* The final \"studies included in review\" count after the manual "
-        "full-text review of the 452 retrieved reports is still pending; the 76 / "
+        "full-text review of the 448 retrieved reports is still pending; the 72 / "
         "376 tier split is the current pre-full-text working count.",
     )
 

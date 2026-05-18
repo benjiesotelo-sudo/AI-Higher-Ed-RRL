@@ -4,6 +4,57 @@ Running log of session-level work on the AI in Higher Ed RRL project. Newest at 
 
 ---
 
+## 2026-05-18 (night) — Removed the supplementary-PDF channel entirely
+
+User decision: drop the six externally-supplied PDFs from the corpus and revert the pipeline to a clean three-database (OpenAlex / ERIC / Semantic Scholar) run. Rationale: the workflow needed to handle that side-channel was adding session overhead disproportionate to its yield (4 high_confidence rows; 2 of the 6 were literature reviews that the methodology gate rejected anyway).
+
+### Database
+- Deleted the one truly-new supplementary paper (Lago 2026, `41f5b0c950550505`) — its paper row, raw_record, and paper_sources link.
+- Deleted the `supplementary_search` search_runs entry.
+- Reset the five S2-original duplicates' supplementary-trust overrides (`is_oa`, `oa_pdf_url`, `is_peer_reviewed`, `is_in_doaj`, `work_type`, `publisher`, `citation_count`, `pdf_filename`, `pdf_status`, and the screen-decision fields). They now fall through the standard screen and are excluded as `not_oa` — same outcome they had before the supplementary channel ever ran.
+
+### Filesystem
+- Deleted the six local PDFs from `pdfs/<year>/<paper_id>.pdf`.
+
+### Code
+- Deleted three one-shot helper scripts: `scripts/ingest_supplementary_pdfs.py`, `scripts/rescreen_supplementary_pdfs.py`, `scripts/enrich_supplementary_dup_flags.py`.
+- Updated the README "How it works" diagram to remove the supplementary hand-search input node and edge; corresponding prose dropped from "four input sources" to "three open scholarly indexes".
+- Updated the README "For Developers" diagram's `scripts/` node to list only `build_manuscript_docx.py`.
+- Rebuilt `output/rrl_matrix.xlsx`, `output/run_manifest.json`, and the README run-statistics appendix via `rrl screen` + `rrl export`.
+
+### Manuscript (private; gitignored)
+- `Manuscript/manuscript.md` §1 / §2.3 / §2.4 / §3.1: scrubbed every supplementary reference; updated all corpus counts.
+- `Manuscript/prisma_data.md`: regenerated with the new numbers; the §6 source-combinations table no longer lists supplementary combos.
+- `Manuscript/prisma_flow.md` (and the embedded Figure 1 in `manuscript.md`): rebuilt without the "Records identified from other sources" branch.
+- `scripts/build_manuscript_docx.py`: appendix tables refreshed to match.
+- `Manuscript/AI_Higher_Ed_SR_Draft_v1.docx`: rebuilt.
+
+### Corpus numbers (before → after)
+
+| Metric | Before (with supplementary) | After (3-database only) |
+|---|---:|---:|
+| raw_records | 63,299 | **63,298** |
+| papers (deduped) | 62,291 | **62,290** |
+| Included | 561 | **557** |
+| In matrix (PDF downloaded) | 452 | **448** |
+| high_confidence (matrix) | 76 | **72** |
+| review_needed (matrix) | 376 | 376 |
+| Era split (included) | 497 post / 64 pre | **493 post / 64 pre** |
+| not_oa (excluded) | 31,359 | **31,364** |
+| non_empirical (excluded) | 508 | **506** |
+
+Per-database contribution to the included set after cleanup:
+
+| Database | Found-in | Unique |
+|---|---:|---:|
+| OpenAlex | 516 | 496 |
+| ERIC | 41 | 41 |
+| Semantic Scholar | 20 | 0 |
+
+No `supplementary_search` adapter remains anywhere in the database, code, or public README; historical PROGRESS.md entries below this one are preserved for the audit trail.
+
+---
+
 ## 2026-05-18 (evening) — Source-attribution cleanup + manuscript privatisation
 
 Three cleanup tasks in one commit before the user's push.
