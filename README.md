@@ -69,13 +69,6 @@ flowchart TD
     SVC_OA -. retrieval URL fallback .-> DL
     SVC_CORE([CORE]) -. last-resort PDF lookup .-> DL
     DL --> OUT[rrl_matrix.xlsx<br/>+ pdfs/year/paper_id.pdf<br/>+ run_manifest.json<br/>+ logs/*.jsonl]
-
-    classDef service fill:#e6f0ff,stroke:#456;
-    classDef exclusion fill:#fff3e6,stroke:#a86,stroke-dasharray:4 2;
-    classDef output fill:#e8f5e9,stroke:#487048;
-    class SVC_OA,SVC_ERIC,SVC_S2,HAND,SVC_DOAJ,SVC_UPW,SVC_ERICF,SVC_CORE service;
-    class X1,X2,X3,X4,X5,X6,X7 exclusion;
-    class HC,RN,OUT output;
 ```
 
 ## How to run
@@ -327,13 +320,6 @@ flowchart TD
     TESTS -. exercises every stage .-> CLI
     SCRIPTS -. imports from .-> ENRICH_PKG
     SCRIPTS -. imports from .-> SCREEN_PKG
-
-    classDef service fill:#e6f0ff,stroke:#456;
-    classDef shared fill:#fff8e6,stroke:#8a7;
-    classDef storage fill:#f0e6ff,stroke:#75a;
-    class SVC_OA,SVC_ERIC,SVC_S2,SVC_CR,SVC_CORE,SVC_DOAJ,SVC_UPW service;
-    class DB_F,HTTP_F,CFG_F,LOG_F shared;
-    class SQLDB,XLSX,PDF_FS,LOGS,MANI storage;
 ```
 
 Full design spec: `docs/superpowers/specs/2026-05-14-rrl-pipeline-design.md`.
