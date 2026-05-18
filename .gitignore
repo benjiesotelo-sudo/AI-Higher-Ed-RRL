@@ -9,5 +9,8 @@ data/
 pdfs/
 logs/
 output/run_manifest_*.json
+output/~$*.xlsx
 *.egg-info/
 .coverage
+.DS_Store
+.Rhistory
