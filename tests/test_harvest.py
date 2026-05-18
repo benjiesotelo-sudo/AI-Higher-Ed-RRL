@@ -75,3 +75,42 @@ def test_harvest_since_overrides_year_min(tmp_path, monkeypatch, fixtures_dir):
     payload = conn.execute("SELECT query_payload FROM search_runs WHERE adapter='openalex'").fetchone()[0]
     spec = json.loads(payload)["spec"]
     assert spec["year_min"] == 2024
+
+
+def test_build_adapter_recognizes_scopus(monkeypatch):
+    monkeypatch.setenv("OPENALEX_EMAIL", "user@example.com")
+    monkeypatch.setenv("ELSEVIER_API_KEY", "fake-elsevier-key")
+    from rrl.config import Settings
+    from rrl.harvest import _build_adapter
+    settings = Settings.from_env()
+    adapter = _build_adapter("scopus", settings)
+    from rrl.search.scopus import ScopusAdapter
+    assert isinstance(adapter, ScopusAdapter)
+    assert adapter.api_key == "fake-elsevier-key"
+
+
+def test_adapters_tuple_includes_scopus():
+    from rrl.harvest import ADAPTERS
+    assert "scopus" in ADAPTERS
+
+
+def test_build_adapter_scopus_requires_key(monkeypatch):
+    monkeypatch.setenv("OPENALEX_EMAIL", "user@example.com")
+    monkeypatch.delenv("ELSEVIER_API_KEY", raising=False)
+    from rrl.config import Settings
+    from rrl.harvest import _build_adapter
+    settings = Settings.from_env()
+    import pytest
+    with pytest.raises(ValueError, match="scopus adapter requires"):
+        _build_adapter("scopus", settings)
+
+
+def test_harvest_skips_scopus_when_key_missing(monkeypatch, tmp_path):
+    monkeypatch.setenv("OPENALEX_EMAIL", "user@example.com")
+    monkeypatch.delenv("ELSEVIER_API_KEY", raising=False)
+    monkeypatch.delenv("SEMANTIC_SCHOLAR_API_KEY", raising=False)
+    monkeypatch.delenv("CORE_API_KEY", raising=False)
+    from rrl.harvest import harvest
+    # only=['scopus'] should be a no-op when key is missing — no exception, no records
+    counts = harvest(tmp_path / "rrl.sqlite", only=["scopus"])
+    assert counts == {} or counts.get("scopus", 0) == 0

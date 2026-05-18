@@ -44,6 +44,7 @@ RATE_PLANS: dict[str, dict] = {
     "openalex":   {"requests_per_second": 10, "per_page": 200},
     "eric":       {"requests_per_second": 1,  "per_page": 2000},
     "s2":         {"requests_per_second": 1,  "per_page": 100, "with_key_rps": 5},
+    "scopus":     {"requests_per_second": 6,  "per_page": 25},
     "crossref":   {"requests_per_second": 50, "per_page": 100},
     "core":       {"requests_per_second": 0.17, "per_page": 100},  # 10/min
     "doaj":       {"requests_per_second": 2,  "per_page": 1},
