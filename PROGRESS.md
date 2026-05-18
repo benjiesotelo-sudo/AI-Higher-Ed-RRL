@@ -18,6 +18,8 @@ Safety nets in place before any destructive action:
 - `data/rrl_pre_rescrape.sqlite` (598 MB) created manually.
 - Phase 5 will rename (not delete) `pdfs/` → `pdfs_pre_rescrape/` and `logs/` → `logs_pre_rescrape/` for instant rollback.
 
+**Phase 5 (evening, cont.) — Clean-slate wipe complete.** Backups: `data/rrl_pre_rescrape.sqlite`, `pdfs_pre_rescrape/`, `logs_pre_rescrape/`, `output/rrl_matrix_v1.xlsx`. Live DB / PDFs / logs reset. Rescrape begins next.
+
 ---
 
 ## 2026-05-18 (night) — Removed the supplementary-PDF channel entirely
