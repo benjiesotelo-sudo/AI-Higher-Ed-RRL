@@ -3,7 +3,10 @@ from __future__ import annotations
 import json
 import sqlite3
 
-PEER_REVIEWED_TYPES = {"journal-article", "book-chapter", "proceedings-article", "review"}
+# OpenAlex's newer type taxonomy uses 'article' for what used to be
+# 'journal-article'. Include both shapes so newly-indexed papers get the
+# is_peer_reviewed flag set automatically.
+PEER_REVIEWED_TYPES = {"journal-article", "article", "book-chapter", "proceedings-article", "review"}
 
 def _flags_from_payload(payload: dict) -> dict:
     oa = payload.get("open_access") or {}

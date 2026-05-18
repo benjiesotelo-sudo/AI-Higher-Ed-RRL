@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "pipeline_version": "0.1.0",
-  "run_id": "6a6ebb11-5365-4fa4-b8b4-81cae8bff875",
-  "run_at_utc": "2026-05-18T04:22:44.804166+00:00",
+  "run_id": "857cb221-17a1-4d73-bab9-a58945fb36e7",
+  "run_at_utc": "2026-05-18T04:30:29.574585+00:00",
   "query_terms": {
     "ai_terms": [
       "artificial intelligence",
@@ -50,8 +50,8 @@
     "papers_in_matrix": 424,
     "pdfs_downloaded_cumulative": 426,
     "pdfs_failed_cumulative": 96,
-    "high_confidence": 44,
-    "review_needed": 380,
+    "high_confidence": 48,
+    "review_needed": 376,
     "excluded_off_topic": 1024,
     "excluded_not_oa": 37671,
     "excluded_non_english": 4834,
@@ -67,9 +67,9 @@
     }
   },
   "stage_runtimes_seconds": {
-    "export_pdf": 0.03095408399531152,
-    "export_matrix": 0.25209300000278745
+    "export_pdf": 0.0008165830076904967,
+    "export_matrix": 0.15990704199066386
   },
   "matrix_file": "rrl_matrix.xlsx",
-  "matrix_sha256": "b99f60dcea929134ae32cde7c4fddc799a512645c18be4321fc8390cc150d0c1"
+  "matrix_sha256": "a9bbbaad2704b740c41a37608d98de06b9e68a258a37db08efef8e555953edd2"
 }

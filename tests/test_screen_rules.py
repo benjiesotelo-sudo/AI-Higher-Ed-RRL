@@ -63,6 +63,14 @@ def test_high_confidence_for_journal_article_in_doaj():
          "work_type": "journal-article", "publisher": "Some Journal", "k12_mixed": False}
     assert decide_quality_tier(p) == "high_confidence"
 
+def test_openalex_modern_article_type_is_high_confidence():
+    # OpenAlex's newer type taxonomy uses 'article' instead of 'journal-article'.
+    # Without this synonym, peer-reviewed papers from journals get demoted to
+    # review_needed for no semantic reason.
+    p = {"included": 1, "is_peer_reviewed": 1, "is_in_doaj": 0,
+         "work_type": "article", "publisher": "Emerald Publishing Limited", "k12_mixed": False}
+    assert decide_quality_tier(p) == "high_confidence"
+
 def test_book_chapter_requires_allowlisted_publisher():
     bad = {"included": 1, "is_peer_reviewed": 1, "is_in_doaj": 0,
            "work_type": "book-chapter", "publisher": "Random Self-Pub", "k12_mixed": False}
