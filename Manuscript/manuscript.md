@@ -51,15 +51,21 @@ Papers satisfying every gate were further triaged into `high_confidence` and `re
 
 ### 2.3 Information sources
 
-We harvested from three open scholarly indexes, queried via their public APIs between 14 and 18 May 2026:
+We used six external services across two distinct roles: **search databases** (which generate the candidate-record pool) and **enrichment / retrieval services** (which add metadata flags and locate retrievable PDFs once a candidate has been identified).
 
-- **OpenAlex** (`api.openalex.org`) — primary source. Provides DOI, abstract (inverted-index encoded), work type, peer-review-relevant source metadata, citation count, and the canonical `best_oa_location` PDF URL. We used the polite pool by supplying a mailto address.
-- **ERIC** (`api.ies.ed.gov/eric/`) — education-specific index intended to surface gray literature and journal content not in OpenAlex's index. *In this run, ERIC contributed zero records to the included corpus due to a parser defect (handled the API's scalar-string fields as if they were lists); the defect has since been corrected and is documented at `docs/superpowers/specs/2026-05-18-source-attribution-diagnosis.md`. A re-harvest is planned.*
-- **Semantic Scholar** (`api.semanticscholar.org`) — broad coverage of computer-science venues. Contributed abstract enrichment for 20 papers that were also found in OpenAlex but supplied no unique included papers after deduplication.
+**Search databases.** Three open scholarly indexes were queried via their public APIs between 14 and 18 May 2026:
 
-We additionally accept dean-curated supplementary papers, ingested through a separate path that attaches an `adapter='dean_provided'` raw-record to either an existing dedup group or a new paper. For the present run, six supplementary PDFs were ingested in this manner; their bibliographic metadata was enriched against OpenAlex by DOI.
+- **OpenAlex** (`api.openalex.org`) — primary search source. Provides DOI, abstract (inverted-index encoded), work type, peer-review-relevant source metadata, citation count, and the canonical `best_oa_location` PDF URL. We used the polite pool by supplying a `mailto` parameter.
+- **ERIC** (`api.ies.ed.gov/eric/`) — education-specific index intended to surface gray literature and journal content not in OpenAlex's index. The ERIC harvest was rerun on 2026-05-18 after a parser defect was identified and corrected (`docs/superpowers/specs/2026-05-18-source-attribution-diagnosis.md`). With clean parsing in place, ERIC supplied 16,177 raw records with full titles and abstracts, but none reached the included corpus: ERIC records carry no DOI, so the pipeline's Unpaywall-based OA verification cannot run on them, and the screen's `not_oa` gate therefore excludes every one. ERIC's full-text URLs (`https://files.eric.ed.gov/fulltext/<ID>.pdf` for ED-prefix records) are not yet wired into the pipeline; closing that gap is a methodological follow-up (Limitations §4.3).
+- **Semantic Scholar** (`api.semanticscholar.org`) — broad CS-leaning index. Contributed 24 included papers (all also found in OpenAlex or supplied by the dean) and abstract enrichment on multi-source rows. No unique included papers.
 
-Enrichment used **DOAJ** (journal-in-DOAJ flag, looked up by ISSN) and **Unpaywall** (authoritative best OA PDF URL, looked up by DOI). When Unpaywall returned a PDF URL, we treated the paper as open access regardless of what OpenAlex's `is_oa` flag said, because Unpaywall is the canonical reference for OA status. The Crossref and CORE APIs are available to the pipeline as configured fallbacks but were not exercised in this run.
+**Supplementary papers.** We additionally accept dean-curated PDFs, ingested through a separate path (`scripts/ingest_dean_pdfs.py`) that attaches an `adapter='dean_provided'` raw-record to either an existing dedup group or a new paper. Their bibliographic metadata is verified against OpenAlex by DOI at ingest time.
+
+**Metadata enrichment.** **CrossRef** (`api.crossref.org`) is used by the pipeline for fallback metadata lookups when an OpenAlex DOI lookup is inconclusive (e.g., recently-published papers not yet indexed by OpenAlex). In this run CrossRef was configured but not exercised on the harvest path.
+
+**Open-access verification.** **DOAJ** (`doaj.org/api/v3/search/journals/issn:`) supplies the `is_in_doaj` flag, looked up per ISSN. **Unpaywall** (`api.unpaywall.org/v2/`) supplies the authoritative best-OA PDF URL per DOI, and overrides OpenAlex's `oa_pdf_url` when it returns one (Unpaywall is the canonical reference for OA status).
+
+**PDF retrieval.** Primary retrieval uses the URL set by Unpaywall (with OpenAlex's `best_oa_location` as fallback). When both fail, **CORE** (`api.core.ac.uk`) is queried by DOI and then by title. Every downloaded byte stream is validated against the `%PDF-` magic bytes and a 10 KB minimum-size threshold before being accepted.
 
 We did **not** search Scopus, Web of Science, or EBSCO. Those databases require institutional subscriptions and have no free public API; their omission is a deliberate, declared scope restriction (see §4.3).
 
@@ -116,19 +122,29 @@ Deduplication was performed before screening, not after: the pipeline groups raw
 
 ### 3.1 Study selection
 
-*Figure 1 (placeholder): PRISMA 2020 flow diagram.* Records identified from databases: 63,298 (OpenAlex 6,816; ERIC 16,177; Semantic Scholar 40,305) plus 6 records from supplementary dean-curated PDFs = **63,304 total**. After deduplication: **62,091 unique papers**. Excluded at title/abstract screening:
+The PRISMA 2020 flow diagram (Figure 1) will be rendered from `Manuscript/prisma_data.md`, which holds the canonical per-stage counts queried directly from the project database. The numbers below mirror that artefact at the snapshot date (2026-05-18) and will be regenerated from the same SQL queries at submission time.
+
+**Identification.** 63,304 records were identified across four sources: OpenAlex (6,816), ERIC (16,177), Semantic Scholar (40,305), and dean-curated supplementary PDFs (6).
+
+**Deduplication.** A three-step cascade (DOI → OpenAlex work ID → normalised title + year + first-author signature) collapsed the raw records into 62,291 unique canonical papers. 956 papers were found in two or more databases; an additional 57 within-database duplicate raws were removed.
+
+**Screening.** Of 62,291 deduplicated papers, **520 were included** and 61,771 excluded. Exclusion reasons (each paper carries one canonical reason — the first to fire in the screen's filter chain):
 
 | Reason | Count |
-|---|---|
-| Not open-access (no retrievable OA PDF) | 37,470 |
-| Not peer-reviewed (work type or source-type signal) | 17,704 |
-| Non-English | 4,835 |
-| Off-topic (failed AI×HE token gate) | 1,024 |
+|---|---:|
+| Not open-access (no retrievable OA PDF) | 37,671 |
+| Not peer-reviewed (work-type / source-type signal) | 17,704 |
+| Non-English | 4,834 |
+| Off-topic (failed AI × HE token gate) | 1,024 |
 | Non-empirical (review / editorial / conceptual) | 507 |
 | K-12-only context | 31 |
-| Wrong publication date | 0 |
+| Wrong publication date (outside 2020–2026) | 0 |
 
-Included after screening: **520 papers.** Of these, **424 had downloadable PDFs and appear in the analysis matrix** (96 were excluded post-screening because their advertised OA PDF URLs were dead at retrieval time); 48 are in the `high_confidence` tier and 376 in `review_needed`. The era split for the 520 included is 459 post-ChatGPT (2023–2026) and 61 pre-ChatGPT (2020–2022).
+**Retrieval.** Of the 520 included papers, **424 (81.5%) had retrievable PDFs and appear in the analysis matrix**; 96 had advertised OA URLs that were dead at retrieval time and are flagged `oa_link_dead`. The matrix splits as 48 papers in the `high_confidence` tier and 376 in `review_needed`. Era distribution for the 520 included is 459 post-ChatGPT (2023–2026) and 61 pre-ChatGPT (2020–2022).
+
+**Per-database contribution to the included corpus.** OpenAlex was the sole database in 496 of the 520 included papers and the co-source in another 20 (with Semantic Scholar) and 0 (with ERIC). The four `dean_provided` papers in the included set are co-sourced with Semantic Scholar. ERIC contributed zero included papers in this run for the reasons in §2.3.
+
+A complete per-stage breakdown — identification, deduplication, enrichment, screening, per-database contribution, source-combination matrix, quality tiers, and PDF retrieval — is in `Manuscript/prisma_data.md`. Each table in that file is paired with the SQL query that produced it so the numbers can be re-derived against any later database snapshot.
 
 ### 3.2 Study characteristics
 
@@ -168,7 +184,9 @@ Several limitations follow from the design of this review and should be read alo
 
 **Topic boundary is regex-based.** Inclusion and exclusion at the topic level were enforced by keyword regex over title, abstract, and venue. The pipeline's `review_needed` tier exists explicitly to surface borderline cases for human judgment rather than dropping them, but a regex over the term lists in §2.4 will miss papers framed in different vocabulary (e.g. work calling LLMs "foundation models" without naming a specific tool).
 
-**Peer-review signal is uneven.** OpenAlex carries explicit peer-review-relevant metadata and is the basis for the included corpus. Semantic Scholar's API does not expose an equivalent signal; S2-only papers were therefore excluded by the strict peer-review gate even where they may in fact be peer-reviewed. ERIC's contribution to the included corpus in this run was zero because of a parser defect identified during the analysis and fixed after the corpus was frozen; a re-harvest is planned and is the principal sensitivity-analysis follow-up for this review.
+**Peer-review signal is uneven.** OpenAlex carries explicit peer-review-relevant metadata and is the basis for the included corpus. Semantic Scholar's API does not expose an equivalent signal; S2-only papers were therefore excluded by the strict peer-review gate even where they may in fact be peer-reviewed. ERIC's `peerreviewed` field is captured in our raw payloads (`T`/`F`) but is not yet read by the pipeline's enrichment step; closing that loop is a follow-up.
+
+**ERIC's contribution is currently zero and is recoverable.** After the ERIC parser was corrected and the harvest was rerun, all 16,177 ERIC records carry full titles, abstracts, and a self-declared peer-review flag — but every record is still excluded by the screen's `not_oa` gate because the pipeline does not currently construct ERIC's own `https://files.eric.ed.gov/fulltext/<ID>.pdf` URLs from `external_id`, and ERIC records carry no DOI for Unpaywall to look up. An audit of the ERIC corpus indicates approximately 1,087 candidate papers would pass the topic and peer-review gates if this OA-URL construction were wired in. Until that step is taken, the included corpus reported here under-represents education-specific gray literature relative to what the search strategy nominally covers. We treat this as a sensitivity-analysis follow-up rather than a retraction; the methodological consequence is a downward bias on grey-literature visibility that we acknowledge explicitly.
 
 **Predatory-venue detection is best-effort.** No comprehensive free machine-readable predatory-venue list exists. We combined DOAJ membership and a short blocklist of widely-acknowledged repeat offenders. Borderline venues land in `review_needed` rather than `high_confidence`, but no automated check can be definitive.
 

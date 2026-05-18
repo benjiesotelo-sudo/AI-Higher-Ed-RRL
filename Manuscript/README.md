@@ -7,6 +7,7 @@ Working folder for the journal-article draft of the systematic review on AI / Ge
 | Path | What it is |
 |---|---|
 | `manuscript.md` | The article draft. IMRaD structure (Intro / Methods / Results / Discussion + Abstract, Conclusion, Declarations, References). Sections marked **DRAFT** in the source have content; sections marked **PLACEHOLDER** are intentionally empty and named with what's needed to fill them. |
+| `prisma_data.md` | Canonical PRISMA 2020 per-stage counts: identification, deduplication, enrichment, screening, per-database contributions, source-combination matrix, quality tiers, and PDF retrieval. Each table is paired with the SQL query that produced it, so any number can be re-derived against a later database snapshot. The article's §3.1 (and Figure 1 once drawn) is sourced from this file. |
 | `references/` | Methodology references used for writing this review. The systematic-review guidelines we follow are `Randles_Finnegan_2023_SR_guidelines.pdf` (Randles & Finnegan, 2023, *Nurse Education Today*). |
 
 ## What's already drafted vs. waiting
