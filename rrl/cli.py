@@ -61,10 +61,10 @@ def dedup(ctx, review, merge):
     click.echo(f"raw_records: {summary['raw_records']}; papers: {summary['papers_created']}")
 
 @main.command()
-@click.option("--only", default=None, help="doaj|unpaywall|openalex|eric")
+@click.option("--only", default=None, help="doaj|unpaywall|openalex|eric|scopus")
 @click.pass_context
 def enrich(ctx, only):
-    """Attach DOAJ + Unpaywall + OpenAlex + ERIC quality flags."""
+    """Attach DOAJ + Unpaywall + OpenAlex + ERIC + Scopus quality flags."""
     from rrl.db import connect, init_schema
     from rrl.config import Settings
     from rrl.http import build_session
@@ -73,11 +73,12 @@ def enrich(ctx, only):
     from rrl.enrich.eric_flags import enrich_from_eric_payloads
     from rrl.enrich.doaj import enrich_papers_with_doaj
     from rrl.enrich.unpaywall import enrich_papers_with_unpaywall
+    from rrl.enrich.scopus_citations import enrich_papers_with_scopus
     configure_logging("enrich", DEFAULT_LOG_DIR)
     settings = Settings.from_env()
     conn = connect(ctx.obj["db"]); init_schema(conn)
     sess = build_session(settings.openalex_email)
-    passes = (only or "openalex,eric,doaj,unpaywall").split(",")
+    passes = (only or "openalex,eric,doaj,unpaywall,scopus").split(",")
     if "openalex" in passes:
         s = enrich_from_openalex_payloads(conn); click.echo(f"openalex: {s}")
     if "eric" in passes:
@@ -86,6 +87,13 @@ def enrich(ctx, only):
         s = enrich_papers_with_doaj(conn, sess); click.echo(f"doaj: {s}")
     if "unpaywall" in passes:
         s = enrich_papers_with_unpaywall(conn, sess, settings.openalex_email); click.echo(f"unpaywall: {s}")
+    if "scopus" in passes:
+        s = enrich_papers_with_scopus(
+            conn, sess,
+            api_key=settings.elsevier_api_key,
+            inst_token=settings.elsevier_insttoken,
+        )
+        click.echo(f"scopus: {s}")
 
 @main.command()
 @click.option("--dry-run", is_flag=True)
@@ -154,11 +162,17 @@ def run_all(ctx, skip):
         from rrl.enrich.eric_flags import enrich_from_eric_payloads
         from rrl.enrich.doaj import enrich_papers_with_doaj
         from rrl.enrich.unpaywall import enrich_papers_with_unpaywall
+        from rrl.enrich.scopus_citations import enrich_papers_with_scopus
         click.echo("== enrich ==")
         enrich_from_openalex_payloads(conn)
         enrich_from_eric_payloads(conn)
         enrich_papers_with_doaj(conn, sess)
         enrich_papers_with_unpaywall(conn, sess, settings.openalex_email)
+        enrich_papers_with_scopus(
+            conn, sess,
+            api_key=settings.elsevier_api_key,
+            inst_token=settings.elsevier_insttoken,
+        )
 
     if "screen" not in skipped:
         from rrl.screen.runner import run_screen
