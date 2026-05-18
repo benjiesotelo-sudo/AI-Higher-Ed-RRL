@@ -12,7 +12,7 @@ MATRIX_COLUMNS = [
     "paper_id", "title", "authors", "year", "era_tag", "venue", "publisher",
     "work_type", "doi", "language", "is_in_doaj", "is_peer_reviewed",
     "is_oa", "oa_status", "citation_count", "topic_match_score",
-    "pdf_filename", "source_apis", "abstract",
+    "pdf_filename", "pdf_status", "source_apis", "abstract",
 ]
 
 def _yes_no_na(v):
@@ -50,13 +50,12 @@ def _row_values(conn, p) -> list:
         _yes_no_na(p["is_in_doaj"]), _yes_no_na(p["is_peer_reviewed"]),
         _yes_no_na(p["is_oa"]), p["oa_status"],
         p["citation_count"], p["topic_match_score"],
-        p["pdf_filename"], _source_apis(conn, p["paper_id"]), p["abstract"],
+        p["pdf_filename"], p["pdf_status"], _source_apis(conn, p["paper_id"]), p["abstract"],
     ]
 
 QUERY = """
 SELECT * FROM papers
 WHERE included = 1
-  AND pdf_status = 'downloaded'
   AND paper_id NOT IN (SELECT loser_id FROM paper_merges)
   AND quality_tier = ?
 ORDER BY year DESC, title
