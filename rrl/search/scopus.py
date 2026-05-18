@@ -68,7 +68,6 @@ class ScopusAdapter:
         cursor: str | None = "*"
         params = {
             "query": self._render_query(q),
-            "view": "COMPLETE",
             "count": 25,
         }
         while cursor is not None:
