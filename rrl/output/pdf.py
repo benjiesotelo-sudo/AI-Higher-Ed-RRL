@@ -32,9 +32,10 @@ def _log_attempt(conn, paper_id, source, url, status, content_type, n_bytes, out
         (paper_id, source, url, status, content_type, n_bytes, outcome, err, _now()),
     )
 
-def _try_url(session, url, source, paper_id, conn, dest: Path) -> bool:
+def _try_url(session, url, source, paper_id, conn, dest: Path,
+             headers: dict | None = None) -> bool:
     try:
-        r = session.get(url, timeout=60)
+        r = session.get(url, timeout=60, headers=headers or {})
     except requests.exceptions.Timeout as e:
         _log_attempt(conn, paper_id, source, url, None, None, 0, "timeout", str(e))
         return False
