@@ -18,7 +18,7 @@ A reproducible, auditable corpus you can read and cite. Two output tiers — `hi
 
 ## How it works
 
-A single `rrl` command kicks off the whole pipeline. Records flow from four input sources through a deduplication cascade, a quality-flag enrichment pass, a seven-stage screening cascade, and a quality-tier triage before being downloaded and exported. Every stage is idempotent — interrupt it and the next run picks up where it left off.
+A single `rrl` command kicks off the whole pipeline. Records flow from three open scholarly indexes through a deduplication cascade, a quality-flag enrichment pass, a seven-stage screening cascade, and a quality-tier triage before being downloaded and exported. Every stage is idempotent — interrupt it and the next run picks up where it left off.
 
 The diagram below uses three shape conventions: **rounded boxes = external services**, **rectangles = pipeline stages or outputs**, **diamonds = decisions**. Dashed lines mark either an enrichment-time service lookup or an exclusion branch out of the main flow.
 
@@ -28,13 +28,11 @@ flowchart TD
     SVC_OA([OpenAlex API])
     SVC_ERIC([ERIC API])
     SVC_S2([Semantic Scholar API])
-    HAND([Supplementary<br/>hand-search])
 
     %% Harvest + dedup
     SVC_OA --> HARV
     SVC_ERIC --> HARV
     SVC_S2 --> HARV
-    HAND --> HARV
     HARV[Harvest records<br/>AI × HE query, 2020–2026, English] --> DEDUP[Dedup cascade<br/>DOI → OpenAlex ID → title+year+author signature]
 
     %% Enrichment
@@ -315,11 +313,9 @@ flowchart TD
 
     %% Sidecar packages
     TESTS[tests/<br/>120+ pytest cases<br/>mocked HTTP via responses lib]
-    SCRIPTS[scripts/<br/>one-shot helpers:<br/>supplementary-PDF ingest,<br/>build_manuscript_docx]
+    SCRIPTS[scripts/<br/>build_manuscript_docx.py]
 
     TESTS -. exercises every stage .-> CLI
-    SCRIPTS -. imports from .-> ENRICH_PKG
-    SCRIPTS -. imports from .-> SCREEN_PKG
 ```
 
 Full design spec: `docs/superpowers/specs/2026-05-14-rrl-pipeline-design.md`.
@@ -337,41 +333,40 @@ No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --s
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
 
-_Last run: 2026-05-18T05:19:36.397572+00:00_
+_Last run: 2026-05-18T08:32:00.708503+00:00_
 
 **Corpus summary**
-- raw_records: 63299
-- after dedup: 62291
-- after screen (included): 561
-- in matrix: 452
+- raw_records: 63298
+- after dedup: 62290
+- after screen (included): 557
+- in matrix: 448
 
 **By quality tier**
-- high_confidence: 76
+- high_confidence: 72
 - review_needed: 376
 
 **By era**
-- post_chatgpt: 497
+- post_chatgpt: 493
 - pre_chatgpt: 64
 
 **Exclusions**
 - off_topic: 7215
-- not_oa: 31359
+- not_oa: 31364
 - non_english: 4834
 - k12_only: 35
 - wrong_date: 0
 
 **Stage runtimes (seconds)**
 - export_pdf: 0.0
-- export_matrix: 0.3
+- export_matrix: 0.2
 
 **By source adapter** _(records contributed before dedup)_
 - eric: 16177
 - openalex: 6816
 - s2: 40305
-- supplementary_search: 1
 
 **PDF download success**
-- downloaded: 454
+- downloaded: 448
 - failed: 109
-- success rate: 80.6%
+- success rate: 80.4%
 <!-- END AUTO-GENERATED -->
