@@ -43,7 +43,7 @@ def harvest(ctx, only, since):
 def dedup(ctx, review, merge):
     """Build canonical papers from raw_records."""
     from rrl.db import connect, init_schema
-    from rrl.dedup.grouping import run_dedup
+    from rrl.dedup.grouping import run_dedup, fuzzy_merge_pass
     from rrl.dedup.review import write_review_csv
     from rrl.dedup.merge import merge_papers
     db_path = ctx.obj["db"]
@@ -58,7 +58,11 @@ def dedup(ctx, review, merge):
         click.echo(f"wrote {n} candidate pair(s) to data/dedup_review.csv")
         return
     summary = run_dedup(conn)
-    click.echo(f"raw_records: {summary['raw_records']}; papers: {summary['papers_created']}")
+    fuzzy_merges = fuzzy_merge_pass(conn, pdf_root=Path("pdfs"))
+    click.echo(
+        f"raw_records: {summary['raw_records']}; papers: {summary['papers_created']}; "
+        f"fuzzy_merges: {fuzzy_merges}"
+    )
 
 @main.command()
 @click.option("--only", default=None, help="doaj|unpaywall|openalex|eric|scopus")
@@ -151,9 +155,10 @@ def run_all(ctx, skip):
     conn = connect(db); init_schema(conn)
 
     if "dedup" not in skipped:
-        from rrl.dedup.grouping import run_dedup
+        from rrl.dedup.grouping import run_dedup, fuzzy_merge_pass
         click.echo("== dedup ==")
         click.echo(run_dedup(conn))
+        click.echo(f"fuzzy_merges: {fuzzy_merge_pass(conn, pdf_root=Path('pdfs'))}")
 
     if "enrich" not in skipped:
         settings = Settings.from_env()

@@ -40,6 +40,15 @@ ACADEMIC_PRESS_ALLOWLIST = {
     "Palgrave Macmillan", "Taylor & Francis", "Sage", "SAGE Publications",
 }
 
+# Publishers that promote a paper to high_confidence (Phase 6 tightening).
+# Substring-match semantics — "Springer" matches "Springer Nature (Netherlands)".
+MAJOR_PUBLISHER_ALLOWLIST = {
+    "Elsevier", "Springer", "Springer Nature", "Wiley",
+    "Sage", "SAGE Publications", "SAGE Publishing",
+    "Taylor & Francis", "IEEE", "ACM", "Cambridge University Press",
+    "Oxford University Press", "Nature Portfolio", "Routledge", "Emerald",
+}
+
 RATE_PLANS: dict[str, dict] = {
     "openalex":   {"requests_per_second": 10, "per_page": 200},
     "eric":       {"requests_per_second": 1,  "per_page": 2000},

@@ -28,7 +28,7 @@ def test_search_paginates_and_yields_records(fixtures_dir):
     assert ids == ["W111", "W222", "W333"]
     assert recs[0].doi == "10.1/aaa"
     assert recs[0].title.startswith("ChatGPT")
-    assert recs[0].abstract == "ChatGPT in education"
+    assert recs[0].abstract.startswith("Survey of 245 undergraduate participants")
     assert recs[0].authors[0]["family"] == "Smith"
 
 @responses.activate

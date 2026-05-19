@@ -1,12 +1,21 @@
 """Screening rules: filter chain + quality tiering. No network calls."""
 from __future__ import annotations
 import re
+import unicodedata
 
 from rrl.config import (
     AI_TERMS, HE_TERMS, K12_TERMS,
     YEAR_MIN, YEAR_MAX,
-    PREDATORY_BLOCKLIST, ACADEMIC_PRESS_ALLOWLIST,
+    PREDATORY_BLOCKLIST, ACADEMIC_PRESS_ALLOWLIST, MAJOR_PUBLISHER_ALLOWLIST,
 )
+
+# Papers published in this year or later count as "within the last 12 months"
+# for the high_confidence citation-leniency rule. Anchored to YEAR_MAX rather
+# than a real date so tests are deterministic and the rule advances naturally
+# when the corpus window slides.
+RECENT_YEAR_THRESHOLD = YEAR_MAX - 1
+HIGH_CONFIDENCE_MIN_ABSTRACT_CHARS = 400
+HIGH_CONFIDENCE_WORK_TYPES = frozenset({"article", "journal-article"})
 
 def _alt(terms: list[str]) -> str:
     return "|".join(re.escape(t) for t in terms)
@@ -56,6 +65,136 @@ NON_EMPIRICAL_ABSTRACT_RE = re.compile(
 NON_EMPIRICAL_WORK_TYPES = {"editorial", "letter", "erratum", "review", "paratext"}
 
 
+# Positive empirical signal: the abstract must contain at least one of these
+# strong methodology phrases to be considered an empirical study. Soft words
+# like "method", "study", "results" alone are insufficient — those appear in
+# conceptual/opinion pieces too.
+STRONG_METHODOLOGY_RE = re.compile(
+    r"\b(?:"
+    r"participants?|respondents?|sample of|survey of|"
+    r"interviews?|interviewed|"
+    r"data (?:was|were) collected|"
+    r"mixed methods?|"
+    r"qualitative analysis|quantitative analysis|"
+    r"experimental design|case study of|"
+    r"ethnograph[a-z]*|"
+    r"thematic analysis|structural equation|"
+    r"ANOVA|regression"
+    r")\b",
+    re.IGNORECASE,
+)
+# Separate pattern for sample-size notation (\b doesn't compose with the
+# digit-anchored form cleanly inside the alternation).
+SAMPLE_SIZE_RE = re.compile(r"\b[Nn]\s*=\s*\d")
+
+
+def has_strong_methodology_signal(abstract: str | None) -> bool:
+    if not abstract:
+        return False
+    return bool(STRONG_METHODOLOGY_RE.search(abstract) or SAMPLE_SIZE_RE.search(abstract))
+
+
+# Outreach / community-service writeups: these have many surface features of
+# empirical work (participants, interviews, workshops) but are not research —
+# they're event reports. Catch them by their specific phrasing.
+OUTREACH_RE = re.compile(
+    r"\b("
+    r"service activity"
+    r"|community service"
+    r"|pengabdian masyarakat"
+    r"|outreach program"
+    r"|providing understanding"
+    r"|collaboration between (?:lecturers|faculty) in providing"
+    r"|workshop with (?:lecturers|faculty)"
+    r")\b",
+    re.IGNORECASE,
+)
+
+
+def is_outreach_paper(abstract: str | None) -> bool:
+    if not abstract:
+        return False
+    return bool(OUTREACH_RE.search(abstract))
+
+
+# Book apparatus and front/back-matter titles: front-of-book or end-of-book
+# chapters whose entire "abstract" is structural, not research.
+NON_RESEARCH_TITLES = frozenset({
+    "about the book", "contributors", "conclusion",
+    "foreword", "preface", "acknowledgments", "acknowledgements", "index",
+})
+
+MIN_ABSTRACT_CHARS = 200
+
+
+def is_non_research_paper(title: str | None, abstract: str | None) -> bool:
+    """Apparatus-style title, or abstract too short to be a real paper."""
+    t = (title or "").strip().rstrip(".").lower()
+    if t in NON_RESEARCH_TITLES:
+        return True
+    if len((abstract or "").strip()) < MIN_ABSTRACT_CHARS:
+        return True
+    return False
+
+
+# Non-Latin script detection: catches abstracts whose language metadata says
+# 'en' but whose body is dominated by CJK / Cyrillic / Arabic / etc. characters.
+LANGUAGE_MISMATCH_HEAD_CHARS = 200
+LANGUAGE_MISMATCH_THRESHOLD = 0.20  # >20% non-Latin letters in the first 200 chars
+
+
+def _is_latin_letter(ch: str) -> bool:
+    if not ch.isalpha():
+        return False
+    try:
+        return "LATIN" in unicodedata.name(ch)
+    except ValueError:
+        return False
+
+
+# Retracted-paper title markers. Publishers use a few standard prefixes/suffixes
+# to flag retraction; ANY of these in the title is grounds for exclusion.
+RETRACTED_TITLE_RE = re.compile(
+    r"(\[Retracted\]|RETRACTED:|RETRACTED ARTICLE:|\(Retracted Article\))",
+    re.IGNORECASE,
+)
+
+
+def is_retracted(title: str | None) -> bool:
+    if not title:
+        return False
+    return bool(RETRACTED_TITLE_RE.search(title))
+
+
+# Ideological-and-political education is a Chinese curriculum subdomain that
+# is out of scope for this review. Excluded only when BOTH title and abstract
+# carry the marker — a passing mention in the abstract alone is not enough.
+IDEOLOGICAL_POLITICAL_RE = re.compile(
+    r"(ideological\s+and\s+political|ideological-political|思政)",
+    re.IGNORECASE,
+)
+
+
+def is_ideological_political_subdomain(title: str | None, abstract: str | None) -> bool:
+    if not title or not abstract:
+        return False
+    return bool(
+        IDEOLOGICAL_POLITICAL_RE.search(title)
+        and IDEOLOGICAL_POLITICAL_RE.search(abstract)
+    )
+
+
+def is_language_mismatch(abstract: str | None) -> bool:
+    """True if the abstract head is dominated by non-Latin-script letters."""
+    if not abstract:
+        return False
+    head = abstract[:LANGUAGE_MISMATCH_HEAD_CHARS]
+    if not head:
+        return False
+    non_latin = sum(1 for c in head if c.isalpha() and not _is_latin_letter(c))
+    return (non_latin / len(head)) > LANGUAGE_MISMATCH_THRESHOLD
+
+
 def methodology_exclusion(title: str | None, abstract: str | None, work_type: str | None) -> str | None:
     """Return an exclusion-reason string if the paper is non-empirical, else None.
 
@@ -84,6 +223,20 @@ def era_tag_for_year(year: int) -> str:
 def _has_text(p: dict) -> str:
     return " ".join(filter(None, [p.get("title"), p.get("abstract"), p.get("venue")]))
 
+
+# How many characters of the abstract count toward topic relevance. Anything
+# past this is treated as "buried" — a paper that only mentions AI in passing
+# at the end of a long off-topic abstract shouldn't be considered AI-relevant.
+TOPIC_ABSTRACT_HEAD_CHARS = 300
+
+
+def _topic_text(p: dict) -> str:
+    """Text used for AI/HE/K-12 topic detection: title + first 300 chars of abstract."""
+    title = p.get("title") or ""
+    abstract = (p.get("abstract") or "")[:TOPIC_ABSTRACT_HEAD_CHARS]
+    return f"{title} {abstract}".strip()
+
+
 def evaluate_paper(p: dict) -> dict:
     """Return a dict of screening decisions for a paper-shaped row.
 
@@ -98,7 +251,15 @@ def evaluate_paper(p: dict) -> dict:
         return {"included": 0, "exclusion_reason": "wrong_date"}
     if (p.get("language") or "").lower() != "en":
         return {"included": 0, "exclusion_reason": "non_english"}
-    text = _has_text(p)
+    if is_retracted(p.get("title")):
+        return {"included": 0, "exclusion_reason": "retracted"}
+    if is_language_mismatch(p.get("abstract")):
+        return {"included": 0, "exclusion_reason": "language_mismatch"}
+    if is_non_research_paper(p.get("title"), p.get("abstract")):
+        return {"included": 0, "exclusion_reason": "non_research_paper"}
+    if is_ideological_political_subdomain(p.get("title"), p.get("abstract")):
+        return {"included": 0, "exclusion_reason": "out_of_scope_subdomain"}
+    text = _topic_text(p)
     ai_n, he_n, score = topic_hits(text)
     k12_n = len(K12_RE.findall(text))
     if ai_n >= 1 and k12_n > 0 and he_n == 0:
@@ -110,6 +271,15 @@ def evaluate_paper(p: dict) -> dict:
     nonemp = methodology_exclusion(p.get("title"), p.get("abstract"), p.get("work_type"))
     if nonemp:
         return {"included": 0, "exclusion_reason": nonemp, "topic_match_score": score}
+    if is_outreach_paper(p.get("abstract")):
+        return {"included": 0, "exclusion_reason": "outreach_paper", "topic_match_score": score}
+    if not has_strong_methodology_signal(p.get("abstract")):
+        return {"included": 0, "exclusion_reason": "no_empirical_signal", "topic_match_score": score}
+    # Old papers with no citation traction AND a weak topic match are excluded
+    # as low-signal: they're typically one-off mentions that didn't gain
+    # traction in the AI-in-HE literature.
+    if 2020 <= year <= 2022 and (p.get("citation_count") or 0) == 0 and score < 4:
+        return {"included": 0, "exclusion_reason": "low_citation_old", "topic_match_score": score}
     k12_mixed = k12_n > 0 and he_n > 0
     cs_curr_signal = bool(CS_CURRICULUM_RE.search(text))
     tier = decide_quality_tier({
@@ -120,6 +290,9 @@ def evaluate_paper(p: dict) -> dict:
         "publisher": p.get("publisher"),
         "k12_mixed": k12_mixed,
         "cs_curriculum_signal": cs_curr_signal,
+        "citation_count": p.get("citation_count"),
+        "year": year,
+        "abstract_length": len((p.get("abstract") or "").strip()),
     })
     return {
         "included": 1,
@@ -129,32 +302,36 @@ def evaluate_paper(p: dict) -> dict:
         "quality_tier": tier,
     }
 
-def _publisher_in_allowlist(publisher: str) -> bool:
-    """Match the academic-press allowlist against a publisher string with
-    substring semantics. OpenAlex emits per-imprint names like
-    "Springer Science+Business Media" and "Springer International Publishing"
-    rather than the bare "Springer Nature" — exact-match misses those, even
-    though they're the same publisher. Case-insensitive substring on either
-    side: an allowlist name appearing in the publisher string (e.g. "springer"
-    in "springer international publishing") is treated as a match.
-    """
+def _publisher_substring_match(publisher: str, allowlist) -> bool:
+    """Case-insensitive substring match against an allowlist of publisher names."""
     if not publisher:
         return False
     p = publisher.lower()
-    return any(name.lower() in p for name in ACADEMIC_PRESS_ALLOWLIST)
+    return any(name.lower() in p for name in allowlist)
+
+
+def _publisher_in_allowlist(publisher: str) -> bool:
+    """Legacy academic-press allowlist match (used by book-chapter check)."""
+    return _publisher_substring_match(publisher, ACADEMIC_PRESS_ALLOWLIST)
+
+
+def _publisher_is_major(publisher: str) -> bool:
+    """Phase-6 major-publisher allowlist match for high_confidence promotion."""
+    return _publisher_substring_match(publisher, MAJOR_PUBLISHER_ALLOWLIST)
 
 
 def decide_quality_tier(p: dict) -> str:
     """Bucket a paper into high_confidence vs review_needed.
 
-    Note on NULL work_type: only OpenAlex sets work_type/publisher in this
-    pipeline; ERIC and S2 leave them NULL. Because the screen has already
-    enforced peer-review (protocol rule) and the methodology gate has already
-    excluded explicit non-empirical work types (editorial/letter/review/...),
-    a NULL work_type at this stage means "from a source without that
-    metadata" — not "of unknown nature". Treat it as acceptable here so
-    peer-reviewed ERIC papers can reach high_confidence on their own merit.
-    Truly suspect work types are the explicit ones; we still flag those.
+    Revised in Phase 6 to be substantially stricter than the prior rules.
+    A paper reaches high_confidence only when ALL hold:
+      * work_type is 'article' / 'journal-article' (book-chapter / proceedings /
+        review / dataset / etc. → review_needed)
+      * citation_count >= 1 OR year is within the last 12 months (RECENT_YEAR_THRESHOLD)
+      * abstract length >= 400 characters
+      * DOAJ-listed OR publisher matches MAJOR_PUBLISHER_ALLOWLIST
+    The existing demotion signals (k12_mixed, cs_curriculum_signal, predatory
+    publisher) still force review_needed.
     """
     if p.get("k12_mixed") or p.get("cs_curriculum_signal"):
         return "review_needed"
@@ -162,14 +339,14 @@ def decide_quality_tier(p: dict) -> str:
     if publisher in PREDATORY_BLOCKLIST:
         return "review_needed"
     wt = p.get("work_type")
-    if wt == "book-chapter":
-        if not _publisher_in_allowlist(publisher):
-            return "review_needed"
-    # OpenAlex's newer type taxonomy uses 'article' as the equivalent of the
-    # legacy 'journal-article'. Both shapes show up in raw_payloads; treat them
-    # as the same kind for tier purposes.
-    elif wt is not None and wt not in {"journal-article", "article", "proceedings-article", "review"}:
+    if wt not in HIGH_CONFIDENCE_WORK_TYPES:
         return "review_needed"
-    if not (p.get("is_peer_reviewed") == 1 or p.get("is_in_doaj") == 1):
+    citations = p.get("citation_count") or 0
+    year = p.get("year") or 0
+    if citations < 1 and year < RECENT_YEAR_THRESHOLD:
+        return "review_needed"
+    if (p.get("abstract_length") or 0) < HIGH_CONFIDENCE_MIN_ABSTRACT_CHARS:
+        return "review_needed"
+    if not (p.get("is_in_doaj") == 1 or _publisher_is_major(publisher)):
         return "review_needed"
     return "high_confidence"
