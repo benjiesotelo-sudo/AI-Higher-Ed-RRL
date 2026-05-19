@@ -154,6 +154,77 @@ def test_download_pdfs_skips_sciencedirect_for_non_elsevier_doi(tmp_path):
 
 
 @responses.activate
+def test_download_does_not_call_core_when_oa_succeeds(tmp_path, fixtures_dir):
+    """CORE is a fallback, not a parallel source. With a working oa_pdf_url,
+    no CORE request should fire — that's where the old code was wasting
+    CORE budget and tripping the 10/min limit."""
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    conn.execute("""INSERT INTO papers (paper_id, doi, title, authors_json, year,
+        is_oa, oa_pdf_url, included, first_seen_at, last_updated_at)
+        VALUES ('p1','10.1/aaa','T','[]',2024,1,'https://x/y.pdf',1,'now','now')""")
+    pdf_bytes = (fixtures_dir / "sample.pdf").read_bytes()
+    responses.add(responses.GET, "https://x/y.pdf", body=pdf_bytes, status=200,
+                  content_type="application/pdf")
+    download_pdfs(conn, build_session("t@e.com"), pdf_root=tmp_path / "pdfs",
+                  core_api_key="KEY")
+    core_calls = [c for c in responses.calls if "api.core.ac.uk" in c.request.url]
+    assert core_calls == []
+
+
+@responses.activate
+def test_download_uses_core_only_when_oa_fails(tmp_path, fixtures_dir):
+    """When the OA URL is dead, CORE should be tried as a fallback."""
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    conn.execute("""INSERT INTO papers (paper_id, doi, title, authors_json, year,
+        is_oa, oa_pdf_url, included, first_seen_at, last_updated_at)
+        VALUES ('p1','10.1/aaa','ChatGPT','[]',2024,1,'https://dead.example/x.pdf',1,'now','now')""")
+    responses.add(responses.GET, "https://dead.example/x.pdf", status=404)
+    responses.add(responses.GET, "https://api.core.ac.uk/v3/search/works",
+                  json={"results": [{"downloadUrl": "https://core.ac.uk/c.pdf"}]}, status=200)
+    pdf_bytes = (fixtures_dir / "sample.pdf").read_bytes()
+    responses.add(responses.GET, "https://core.ac.uk/c.pdf", body=pdf_bytes,
+                  status=200, content_type="application/pdf")
+    summary = download_pdfs(conn, build_session("t@e.com"),
+                            pdf_root=tmp_path / "pdfs", core_api_key="KEY")
+    assert summary["downloaded"] == 1
+    core_calls = [c for c in responses.calls if "api.core.ac.uk" in c.request.url]
+    assert len(core_calls) >= 1
+
+
+@responses.activate
+def test_download_handles_core_429_gracefully(tmp_path):
+    """CORE returning 429 must NOT crash export — paper is marked
+    not_retrievable and the run continues."""
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    conn.execute("""INSERT INTO papers (paper_id, doi, title, authors_json, year,
+        is_oa, oa_pdf_url, included, first_seen_at, last_updated_at)
+        VALUES ('p1','10.1/aaa','ChatGPT','[]',2024,1,'https://dead.example/x.pdf',1,'now','now')""")
+    responses.add(responses.GET, "https://dead.example/x.pdf", status=404)
+    responses.add(responses.GET, "https://api.core.ac.uk/v3/search/works",
+                  status=429)  # rate-limited
+    summary = download_pdfs(conn, build_session("t@e.com"),
+                            pdf_root=tmp_path / "pdfs", core_api_key="KEY")
+    assert summary["failed"] == 1
+    status = conn.execute("SELECT pdf_status FROM papers WHERE paper_id='p1'").fetchone()["pdf_status"]
+    assert status == "not_retrievable"
+
+
+@responses.activate
+def test_download_respects_core_budget_cap(tmp_path):
+    """With core_budget=0, no CORE call is made even when oa fails."""
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    conn.execute("""INSERT INTO papers (paper_id, doi, title, authors_json, year,
+        is_oa, oa_pdf_url, included, first_seen_at, last_updated_at)
+        VALUES ('p1','10.1/aaa','T','[]',2024,1,'https://dead.example/x.pdf',1,'now','now')""")
+    responses.add(responses.GET, "https://dead.example/x.pdf", status=404)
+    download_pdfs(conn, build_session("t@e.com"),
+                  pdf_root=tmp_path / "pdfs", core_api_key="KEY",
+                  core_budget=0)
+    core_calls = [c for c in responses.calls if "api.core.ac.uk" in c.request.url]
+    assert core_calls == []
+
+
+@responses.activate
 def test_download_pdfs_marks_not_retrievable_when_all_sources_fail(tmp_path):
     """All sources fail → pdf_status becomes 'not_retrievable' (not 'oa_link_dead')."""
     from rrl.db import connect, init_schema
