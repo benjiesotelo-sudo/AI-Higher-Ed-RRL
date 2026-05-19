@@ -3,10 +3,12 @@ from __future__ import annotations
 import hashlib
 import json
 import sqlite3
+from collections import defaultdict
 from datetime import datetime, timezone
+from pathlib import Path
 from typing import Iterable
 
-from rrl.search.base import normalize_doi
+from rrl.search.base import normalize_doi, normalize_title, normalize_author_name
 
 SOURCE_PRIORITY = {"openalex": 0, "crossref": 1, "eric": 2, "s2": 3}
 
@@ -80,6 +82,79 @@ def _row_for_key(r: sqlite3.Row) -> dict:
         "openalex_id": _openalex_id_from_payload(r["raw_payload"]),
         "raw_payload": r["raw_payload"],
     }
+
+# How many words of the normalized title to use in the fuzzy fingerprint.
+# Six words is a compromise: long enough to distinguish unrelated papers, short
+# enough that a paper with vs without a subtitle still shares the prefix.
+# (A subtitle bumps a paper from N words to N+M; capping at 6 ensures the
+# fingerprint stays anchored to the main title clause for typical academic
+# titles.) The min-words gate prevents trivial titles from collapsing.
+FUZZY_TITLE_WORDS = 6
+FUZZY_TITLE_MIN_WORDS = 4
+FUZZY_AUTHOR_LIMIT = 3
+
+
+def fuzzy_fingerprint(title: str | None, year: int | None, authors_json: str | None) -> str | None:
+    """Build a fingerprint that ignores subtitle and author-ordering differences.
+
+    Returns None if the inputs are too thin to make a reliable match (very
+    short titles, missing year, no parseable authors). Two papers with the
+    same fingerprint are treated as the same paper by fuzzy_merge_pass.
+    """
+    if not title or year is None or not authors_json:
+        return None
+    norm = normalize_title(title)
+    words = norm.split()
+    if len(words) < FUZZY_TITLE_MIN_WORDS:
+        return None
+    head = " ".join(words[:FUZZY_TITLE_WORDS])
+    try:
+        authors = json.loads(authors_json) or []
+    except (TypeError, ValueError):
+        return None
+    surnames = {
+        normalize_author_name(a.get("family") or "")
+        for a in authors if isinstance(a, dict)
+    }
+    surnames = sorted(s for s in surnames if s)
+    if not surnames:
+        return None
+    author_sig = "+".join(surnames[:FUZZY_AUTHOR_LIMIT])
+    return f"{head}|{year}|{author_sig}"
+
+
+def fuzzy_merge_pass(conn: sqlite3.Connection, pdf_root: Path) -> int:
+    """Second-pass dedup: merge papers that share a fuzzy fingerprint.
+
+    Operates on the papers table after run_dedup. A paper without a DOI that
+    fingerprint-matches another paper (with or without a DOI) is merged into
+    the other, with DOI-bearing papers winning over DOI-less ones. Returns
+    the number of merges performed.
+    """
+    from rrl.dedup.merge import merge_papers  # local import: avoids cycle
+
+    rows = conn.execute(
+        "SELECT paper_id, doi, title, year, authors_json FROM papers"
+    ).fetchall()
+    by_fp: dict[str, list[tuple[str, str | None]]] = defaultdict(list)
+    for r in rows:
+        fp = fuzzy_fingerprint(r["title"], r["year"], r["authors_json"])
+        if fp is None:
+            continue
+        by_fp[fp].append((r["paper_id"], r["doi"]))
+
+    merges = 0
+    for fp, paper_list in by_fp.items():
+        if len(paper_list) < 2:
+            continue
+        # Pick canonical: prefer paper with DOI; tie-break by paper_id for determinism.
+        ordered = sorted(paper_list, key=lambda x: (x[1] is None or x[1] == "", x[0]))
+        winner = ordered[0][0]
+        for loser, _ in ordered[1:]:
+            merge_papers(conn, loser_id=loser, winner_id=winner, pdf_root=pdf_root)
+            merges += 1
+    return merges
+
 
 def run_dedup(conn: sqlite3.Connection) -> dict:
     rows = [_row_for_key(r) for r in conn.execute("SELECT * FROM raw_records").fetchall()]

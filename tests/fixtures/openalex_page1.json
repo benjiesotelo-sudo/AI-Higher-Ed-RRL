@@ -1,5 +1,9 @@
 {
-  "meta": {"count": 3, "next_cursor": "CURSOR2", "per_page": 200},
+  "meta": {
+    "count": 3,
+    "next_cursor": "CURSOR2",
+    "per_page": 200
+  },
   "results": [
     {
       "id": "https://openalex.org/W111",
@@ -9,11 +13,215 @@
       "language": "en",
       "type": "journal-article",
       "cited_by_count": 12,
-      "authorships": [{"author": {"display_name": "Jane Smith"}, "raw_author_name": "Jane Smith"}],
-      "primary_location": {"source": {"display_name": "J. Higher Ed", "host_organization_name": "Springer", "issn_l": "1234-5678", "type": "journal", "is_in_doaj": false}},
-      "open_access": {"is_oa": true, "oa_status": "gold"},
-      "best_oa_location": {"pdf_url": "https://example.com/a.pdf"},
-      "abstract_inverted_index": {"ChatGPT": [0], "in": [1], "education": [2]}
+      "authorships": [
+        {
+          "author": {
+            "display_name": "Jane Smith"
+          },
+          "raw_author_name": "Jane Smith"
+        }
+      ],
+      "primary_location": {
+        "source": {
+          "display_name": "J. Higher Ed",
+          "host_organization_name": "Springer",
+          "issn_l": "1234-5678",
+          "type": "journal",
+          "is_in_doaj": false
+        }
+      },
+      "open_access": {
+        "is_oa": true,
+        "oa_status": "gold"
+      },
+      "best_oa_location": {
+        "pdf_url": "https://example.com/a.pdf"
+      },
+      "abstract_inverted_index": {
+        "Survey": [
+          0
+        ],
+        "of": [
+          1,
+          36,
+          50
+        ],
+        "245": [
+          2,
+          51
+        ],
+        "undergraduate": [
+          3
+        ],
+        "participants": [
+          4,
+          52
+        ],
+        "in": [
+          5
+        ],
+        "writing": [
+          6
+        ],
+        "courses": [
+          7
+        ],
+        "to": [
+          8
+        ],
+        "investigate": [
+          9
+        ],
+        "ChatGPT": [
+          10
+        ],
+        "adoption.": [
+          11
+        ],
+        "We": [
+          12
+        ],
+        "collected": [
+          13,
+          41
+        ],
+        "data": [
+          14
+        ],
+        "through": [
+          15
+        ],
+        "online": [
+          16
+        ],
+        "questionnaires": [
+          17
+        ],
+        "and": [
+          18,
+          58
+        ],
+        "conducted": [
+          19
+        ],
+        "interviews": [
+          20
+        ],
+        "with": [
+          21,
+          33
+        ],
+        "18": [
+          22
+        ],
+        "faculty": [
+          23
+        ],
+        "members.": [
+          24
+        ],
+        "Mixed": [
+          25
+        ],
+        "methods": [
+          26
+        ],
+        "analysis": [
+          27,
+          35,
+          61
+        ],
+        "combined": [
+          28
+        ],
+        "regression": [
+          29
+        ],
+        "on": [
+          30
+        ],
+        "usage": [
+          31
+        ],
+        "frequency": [
+          32
+        ],
+        "thematic": [
+          34
+        ],
+        "interview": [
+          37
+        ],
+        "transcripts.": [
+          38
+        ],
+        "Data": [
+          39
+        ],
+        "were": [
+          40
+        ],
+        "over": [
+          42
+        ],
+        "two": [
+          43
+        ],
+        "semesters": [
+          44
+        ],
+        "at": [
+          45
+        ],
+        "three": [
+          46
+        ],
+        "universities;": [
+          47
+        ],
+        "the": [
+          48
+        ],
+        "sample": [
+          49
+        ],
+        "included": [
+          53
+        ],
+        "undergraduates": [
+          54
+        ],
+        "from": [
+          55
+        ],
+        "arts,": [
+          56
+        ],
+        "sciences,": [
+          57
+        ],
+        "engineering.": [
+          59
+        ],
+        "Quantitative": [
+          60
+        ],
+        "showed": [
+          62
+        ],
+        "significant": [
+          63
+        ],
+        "differences": [
+          64
+        ],
+        "across": [
+          65
+        ],
+        "disciplines.": [
+          66
+        ]
+      }
     },
     {
       "id": "https://openalex.org/W222",
@@ -23,9 +231,24 @@
       "language": "en",
       "type": "journal-article",
       "cited_by_count": 4,
-      "authorships": [{"author": {"display_name": "Alex Doe"}, "raw_author_name": "Alex Doe"}],
-      "primary_location": {"source": {"display_name": "Univ. Review", "type": "journal"}},
-      "open_access": {"is_oa": false, "oa_status": "closed"},
+      "authorships": [
+        {
+          "author": {
+            "display_name": "Alex Doe"
+          },
+          "raw_author_name": "Alex Doe"
+        }
+      ],
+      "primary_location": {
+        "source": {
+          "display_name": "Univ. Review",
+          "type": "journal"
+        }
+      },
+      "open_access": {
+        "is_oa": false,
+        "oa_status": "closed"
+      },
       "abstract_inverted_index": null
     }
   ]

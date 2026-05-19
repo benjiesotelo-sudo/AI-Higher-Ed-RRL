@@ -10,7 +10,7 @@ from rrl.screen.rules import evaluate_paper
 
 PAPER_COLS = ("paper_id", "title", "abstract", "venue", "year", "language",
               "is_oa", "oa_pdf_url", "is_peer_reviewed", "is_in_doaj",
-              "work_type", "publisher")
+              "work_type", "publisher", "citation_count")
 
 def run_screen(conn: sqlite3.Connection, *, dry_run: bool = False) -> dict:
     rows = conn.execute(f"SELECT {','.join(PAPER_COLS)} FROM papers").fetchall()
