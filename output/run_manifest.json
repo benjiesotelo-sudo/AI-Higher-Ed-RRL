@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "pipeline_version": "0.1.0",
-  "run_id": "70b2b3a6-3130-408e-bf0a-c023f3c227c3",
-  "run_at_utc": "2026-05-20T00:29:13.183097+00:00",
+  "run_id": "0b29f762-0b2d-4b9e-9395-d1edadb0adf7",
+  "run_at_utc": "2026-05-20T10:32:42.894329+00:00",
   "query_terms": {
     "ai_terms": [
       "artificial intelligence",
@@ -68,9 +68,9 @@
     }
   },
   "stage_runtimes_seconds": {
-    "export_pdf": 46920.059228166996,
-    "export_matrix": 5.852030541980639
+    "export_pdf": 0.3685024580336176,
+    "export_matrix": 5.7377936670091
   },
   "matrix_file": "rrl_matrix.xlsx",
-  "matrix_sha256": "5b27bd6f40896541c627e37d911555cb876f47f52de0a824dea50a6523001985"
+  "matrix_sha256": "b24b58eda12b1e5aa6c1d46e6721f7073ee9a678cc3c804098e555f980ba0084"
 }
