@@ -4,6 +4,86 @@ Running log of session-level work on the AI in Higher Ed RRL project. Newest at 
 
 ---
 
+## 2026-05-20 — Full rescrape complete (Phase 6e)
+
+Export finished after ~14 hours (started 2026-05-19 evening). Matrix +
+manifest written, PDFs downloaded via the full retrieval cascade.
+
+| Metric | Value |
+|---|---:|
+| raw_records | 95,190 |
+| papers (after dedup) | 77,570 |
+| fuzzy-merge duplicates collapsed | 1,154 |
+| Included (in matrix) | **4,831** |
+| &nbsp;&nbsp;high_confidence | 1,948 |
+| &nbsp;&nbsp;review_needed | 2,883 |
+| Era split (included) | 4,684 post / 176 pre |
+| PDFs downloaded | **2,693** (55.7% of matrix) |
+| Not retrievable | 2,138 |
+
+Per-source attempt success rate:
+
+| Source | Downloads | Attempts | Rate |
+|---|---:|---:|---:|
+| oa (Unpaywall / OpenAlex direct) | 1,985 | 2,740 | 72.4% |
+| core_doi | 510 | 730 | 69.9% |
+| sciencedirect (Elsevier 10.1016/*) | 153 | 153 | 100.0% |
+| core_title | 45 | 95 | 47.4% |
+
+Tier yield (matrix papers with downloaded PDF):
+
+| Tier | In matrix | Downloaded | % |
+|---|---:|---:|---:|
+| high_confidence | 1,948 | 1,198 | 61.5% |
+| review_needed | 2,883 | 1,450 | 50.3% |
+
+Total CORE budget consumed: ~1,900 of 14,400. No 429s leaked out (CORE
+fixes from phase-6d worked as designed).
+
+---
+
+## 2026-05-19 — Screening tightening + CORE fix (phase-6c, phase-6d)
+
+Manual diagnostic-sample review on the loose-rule corpus showed 49% FP
+rate in high_confidence. User-specified rule tightening:
+
+- Topic gate must intersect in title or first 300 chars of abstract.
+- Strong methodology signal required in abstract (participants /
+  survey of / interviews / mixed methods / regression / etc.).
+- Outreach / community-service writeups excluded.
+- Apparatus titles (About the Book, Contributors, etc.) excluded;
+  abstracts < 200 chars excluded.
+- Non-Latin script detection (>20% non-Latin letters → language_mismatch).
+- Retracted-paper title markers: [Retracted], RETRACTED:,
+  RETRACTED ARTICLE:, (Retracted Article).
+- Ideological-political subdomain (思政) excluded when both title and
+  abstract carry the marker.
+- Old papers (2020-2022) with 0 citations and weak topic score excluded.
+- Revised high_confidence tier: requires `work_type` in {article,
+  journal-article}, citations >= 1 OR recent year, abstract >= 400 chars,
+  and (DOAJ OR MAJOR_PUBLISHER_ALLOWLIST). NULL work_type and
+  book-chapter both demote.
+
+Plus fuzzy dedup fallback: first-6 normalized-title words + year +
+sorted normalized author surnames (top 3). Catches the same paper
+indexed by ERIC (no DOI) and OpenAlex (with DOI) when first_author
+normalization diverges.
+
+CORE retrieval hardened: fallback-only (skip when OA URL set), 429-safe
+(returns None instead of raising), 6.5s minimum interval between calls,
+14,400 daily budget cap.
+
+Effect on corpus: included 35,298 → 4,831 (7.3× tighter). HC false-
+positive rate dropped from 49% to 6.2% per second sample review.
+
+Tests: 203 passed (was 155 baseline; +48 new for the tightening rules,
+fuzzy dedup, and CORE hardening).
+
+Commits: 49b89d6 (phase-6c, filter tightening + fuzzy dedup), e87d375
+(phase-6d, CORE hardening).
+
+---
+
 ## 2026-05-18 (cont.) — Harvest complete (4 databases)
 
 | Adapter | raw_records | status |
