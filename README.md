@@ -6,6 +6,8 @@ A Python CLI that harvests, deduplicates, screens, and downloads academic papers
 
 A reproducible, auditable corpus you can read and cite. Two output tiers — `high_confidence` and `review_needed` — surface borderline papers for manual judgment rather than silently dropping them. Papers passing screening but with no retrievable full text are reported as `not_retrievable` (distinct from formal exclusion) so the candidate worklist for interlibrary-loan retrieval stays visible.
 
+> **Methodology version: v2 (2026-05-20).** This README and the live `output/` artefacts describe the post-pivot pipeline: four databases (OpenAlex, Scopus, ERIC, Semantic Scholar), no open-access restriction on inclusion, 13-stage screening, ScienceDirect TDM retrieval for Elsevier DOIs. The pre-pivot **v1** (three databases, open-access-only, 7-stage screening; commits up to git tag `v1-pre-rescrape`) is preserved for comparison: `AI_Higher_Ed_SR_Draft_v1.docx` and `rrl_matrix_v1.xlsx` are retained in the project's `OLD Files/` backup folder, and `PROGRESS.md` documents the pivot in the 2026-05-18 entry. See git history for the exact changes.
+
 ## Scope
 
 **Included.** Faculty using ChatGPT / LLMs to teach. Students using AI tools for coursework (surveys, attitudes, academic integrity, learning outcomes). Institutional policy / governance. AI-literacy programs that teach students *to use* AI.
@@ -51,13 +53,13 @@ flowchart TD
     TIER -- article/journal-article<br/>+ citations ≥ 1 OR recent<br/>+ abstract ≥ 400 chars<br/>+ DOAJ or major publisher --> HC[high_confidence]
     TIER -- any criterion missed<br/>or borderline --> RN[review_needed]
 
-    %% Retrieval + output (cascade order shown)
+    %% Retrieval + output (cascade order: oa → core → sciencedirect)
     HC --> DL[Download PDFs<br/>validate %PDF magic-bytes + 10 KB min]
     RN --> DL
-    SVC_UPW -. 1. retrieval URL .-> DL
-    SVC_OA  -. 2. retrieval URL fallback .-> DL
-    SVC_CORE([CORE]) -. 3. CORE-by-DOI then by-title<br/>throttled to 10/min .-> DL
-    SVC_SD([ScienceDirect TDM]) -. 4. fallback for 10.1016/* DOIs .-> DL
+    SVC_UPW -->|"primary retrieval URL"| DL
+    SVC_OA  -->|"OA URL fallback"| DL
+    SVC_CORE([CORE]) -->|"CORE by DOI then by title (throttled to 10/min)"| DL
+    SVC_SD([ScienceDirect TDM]) -->|"Elsevier 10.1016/* DOIs"| DL
     DL --> OUT[rrl_matrix.xlsx<br/>+ pdfs/year/paper_id.pdf<br/>+ run_manifest.json<br/>+ logs/*.jsonl]
 ```
 
@@ -200,6 +202,7 @@ flowchart TD
         SOA[openalex.py]
         SERIC[eric.py]
         SS2[semantic_scholar.py]
+        SSCO[scopus.py]
         SCR[crossref.py]
         SCORE[core_api.py]
     end
@@ -217,6 +220,7 @@ flowchart TD
         EERIC[eric_flags.py]
         EDOAJ[doaj.py]
         EUPW[unpaywall.py]
+        ESCO[scopus_citations.py]
     end
 
     %% Screen
@@ -306,13 +310,15 @@ flowchart TD
     LOG_F -.-> LOGS
 
     %% Sidecar packages
-    TESTS[tests/<br/>120+ pytest cases<br/>mocked HTTP via responses lib]
+    TESTS[tests/<br/>203 pytest cases<br/>mocked HTTP via responses lib]
     SCRIPTS[scripts/<br/>build_manuscript_docx.py]
 
     TESTS -. exercises every stage .-> CLI
 ```
 
-Full design spec: `docs/superpowers/specs/2026-05-14-rrl-pipeline-design.md`.
+Full design specs:
+- `docs/superpowers/specs/2026-05-14-rrl-pipeline-design.md` — original v1 design (3-database, OA-only).
+- `docs/superpowers/specs/2026-05-18-rescrape-and-elsevier-design.md` — v2 rescrape + Elsevier integration (the present pipeline).
 
 ## Development
 
@@ -327,42 +333,57 @@ No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --s
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
 
-_Last run: 2026-05-20T10:32:42.894329+00:00_
+_Last run: 2026-05-20T10:58:42.354669+00:00_
 
-**Corpus summary**
-- raw_records: 95190
-- after dedup: 77570
-- after screen (included): 4860
-- in matrix: 4831
+**Corpus pipeline** — what happened, stage by stage
+- raw_records: **95,190** — harvested across all configured search adapters
+- after exact-key dedup: **77,570** — collapsed 17,620 duplicates (18.5% dedup rate) via the DOI → OpenAlex ID → title+year+author cascade
+- after fuzzy-merge pass: **76,416** — an additional **1,154** DOI-less duplicates collapsed by the first-6-words + year + author-surname fingerprint
+- excluded by screening: **72,710** (95.2% of post-dedup) — one canonical reason per paper
+- in matrix (included, non-merged): **4,831** — the final analysis set
 
-**By quality tier**
-- high_confidence: 1948
-- review_needed: 2883
+**By quality tier** _(matrix set)_
+- high_confidence: **1,948** (40.3%) — work_type article + citations ≥ 1 or recent + abstract ≥ 400 chars + DOAJ/major publisher
+- review_needed: **2,883** (59.7%) — surfaced for manual review
 
-**By era**
-- post_chatgpt: 4684
-- pre_chatgpt: 176
+**By era** _(matrix set)_
+- post_chatgpt (2023–2026): **4,656**
+- pre_chatgpt (2020–2022): **175**
 
-**Exclusions**
-- off_topic: 46660
-- non_english: 8537
-- k12_only: 202
-- wrong_date: 0
-- not_peer_reviewed: 1729
-- non_empirical: 529
+**Exclusion reasons** _(first filter to fire wins)_
+- off_topic: **46,660**
+- non_english: **8,537**
+- no_empirical_signal: **8,079**
+- non_research_paper: **6,523**
+- not_peer_reviewed: **1,729**
+- non_empirical: **529**
+- k12_only: **202**
+- out_of_scope_subdomain: **144**
+- language_mismatch: **142**
+- retracted: **127**
+- low_citation_old: **23**
+- outreach_paper: **15**
+
+**By source adapter** _(records contributed before dedup)_
+- openalex: **51,372**
+- scopus: **22,719**
+- eric: **16,177**
+- s2: **4,922**
+
+**PDF retrieval** _(matrix set)_
+- downloaded: **2,648** (54.8% success rate)
+- not_retrievable: **2,183** — candidate worklist for interlibrary-loan retrieval
+
+**Per-source PDF attempts** _(which retrieval source delivered each download)_
+
+| Source | Downloads | Attempts | Hit rate |
+|---|---:|---:|---:|
+| oa | 1,985 | 2,740 | 72.4% |
+| core_doi | 510 | 730 | 69.9% |
+| sciencedirect | 153 | 153 | 100.0% |
+| core_title | 45 | 95 | 47.4% |
 
 **Stage runtimes (seconds)**
 - export_pdf: 0.4
 - export_matrix: 5.7
-
-**By source adapter** _(records contributed before dedup)_
-- eric: 16177
-- openalex: 51372
-- s2: 4922
-- scopus: 22719
-
-**PDF retrieval**
-- downloaded: 2693
-- not_retrievable: 2205
-- success rate: 55.0%
 <!-- END AUTO-GENERATED -->

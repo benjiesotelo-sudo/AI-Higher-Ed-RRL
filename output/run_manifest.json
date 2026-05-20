@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "pipeline_version": "0.1.0",
-  "run_id": "0b29f762-0b2d-4b9e-9395-d1edadb0adf7",
-  "run_at_utc": "2026-05-20T10:32:42.894329+00:00",
+  "run_id": "ca35b766-0a89-4e30-aa8c-9b8d5e1849fc",
+  "run_at_utc": "2026-05-20T10:58:42.354669+00:00",
   "query_terms": {
     "ai_terms": [
       "artificial intelligence",
@@ -46,31 +46,65 @@
   "counts": {
     "raw_records": 95190,
     "papers_after_dedup": 77570,
-    "papers_after_screen_included": 4860,
+    "fuzzy_merges": 1154,
+    "papers_after_screen_included": 4831,
     "papers_in_matrix": 4831,
+    "papers_after_screen_included_cumulative": 4860,
+    "pdfs_downloaded": 2648,
+    "pdfs_not_retrievable": 2183,
     "pdfs_downloaded_cumulative": 2693,
     "pdfs_not_retrievable_cumulative": 2205,
     "high_confidence": 1948,
     "review_needed": 2883,
-    "excluded_off_topic": 46660,
-    "excluded_non_english": 8537,
-    "excluded_k12_only": 202,
-    "excluded_wrong_date": 0,
-    "excluded_not_peer_reviewed": 1729,
-    "excluded_non_empirical": 529,
-    "post_chatgpt": 4684,
-    "pre_chatgpt": 176,
+    "post_chatgpt": 4656,
+    "pre_chatgpt": 175,
+    "exclusion_reasons": {
+      "off_topic": 46660,
+      "non_english": 8537,
+      "no_empirical_signal": 8079,
+      "non_research_paper": 6523,
+      "not_peer_reviewed": 1729,
+      "non_empirical": 529,
+      "k12_only": 202,
+      "out_of_scope_subdomain": 144,
+      "language_mismatch": 142,
+      "retracted": 127,
+      "low_citation_old": 23,
+      "outreach_paper": 15
+    },
     "per_adapter": {
       "eric": 16177,
       "openalex": 51372,
       "s2": 4922,
       "scopus": 22719
-    }
+    },
+    "per_source_pdf_attempts": [
+      {
+        "source": "oa",
+        "attempts": 2740,
+        "downloads": 1985
+      },
+      {
+        "source": "core_doi",
+        "attempts": 730,
+        "downloads": 510
+      },
+      {
+        "source": "sciencedirect",
+        "attempts": 153,
+        "downloads": 153
+      },
+      {
+        "source": "core_title",
+        "attempts": 95,
+        "downloads": 45
+      }
+    ]
   },
   "stage_runtimes_seconds": {
-    "export_pdf": 0.3685024580336176,
-    "export_matrix": 5.7377936670091
+    "export_pdf": 0.3773656250559725,
+    "export_matrix": 5.693848625000101
   },
   "matrix_file": "rrl_matrix.xlsx",
-  "matrix_sha256": "b24b58eda12b1e5aa6c1d46e6721f7073ee9a678cc3c804098e555f980ba0084"
+  "matrix_sha256": "2d57e50d6ae53eaaedbf34ec78eb49fcb3d456490de62277aa8b35d36690f563"
 }
