@@ -18,6 +18,7 @@ Output is gitignored under Manuscript/.
 """
 from __future__ import annotations
 
+import argparse
 import re
 from datetime import date
 from pathlib import Path
@@ -31,7 +32,7 @@ from docx.shared import Cm, Pt, RGBColor
 
 ROOT = Path(__file__).resolve().parents[1]
 SRC = ROOT / "Manuscript" / "manuscript.md"
-OUT = ROOT / "Manuscript" / "AI_Higher_Ed_SR_Draft_v1.docx"
+OUT_TEMPLATE = "AI_Higher_Ed_SR_Draft_{version}.docx"
 
 WORKING_TITLE = "A Systematic Review of AI Adoption in Higher Education, 2020–2026"
 TODAY = date.today().strftime("%d %B %Y")
@@ -433,6 +434,14 @@ def add_appendix(doc: Document) -> None:
 # ----- entry point ---------------------------------------------------------
 
 def main() -> int:
+    parser = argparse.ArgumentParser(description="Build the manuscript docx from manuscript.md")
+    parser.add_argument(
+        "--version",
+        default="v1",
+        help="Output filename suffix (default: v1). Use v2 for the post-pivot rescrape.",
+    )
+    args = parser.parse_args()
+
     if not SRC.exists():
         print(f"ERROR: {SRC} not found")
         return 2
@@ -446,9 +455,10 @@ def main() -> int:
     parse_and_render(doc, SRC.read_text(encoding="utf-8"))
     add_appendix(doc)
 
-    OUT.parent.mkdir(parents=True, exist_ok=True)
-    doc.save(OUT)
-    print(f"Wrote {OUT}")
+    out = ROOT / "Manuscript" / OUT_TEMPLATE.format(version=args.version)
+    out.parent.mkdir(parents=True, exist_ok=True)
+    doc.save(out)
+    print(f"Wrote {out}")
     return 0
 
 

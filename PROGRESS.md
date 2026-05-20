@@ -289,12 +289,42 @@ Manuscript revisions:
 
 ## Open items for the next session
 
-1. **ERIC EJ-prefix recovery** — the next ERIC lever. 9,794 EJ-prefix journal records carry `peerreviewed='T'` but have no DOI in the ERIC API payload, and ERIC's `files.eric.ed.gov` mirror does not host them. Recovery would require a DOI-by-title pass against CrossRef → Unpaywall. Yield uncertain; left as a sensitivity-analysis follow-up.
-2. **PROSPERO registration decision** (manuscript §2.1).
-3. **Data-extraction template** to finalize before reading 452 PDFs (manuscript §2.6).
-4. **Target journal** to lock in (`Manuscript/README.md`).
-5. **Provenance refinement for supplementary-channel S2 dupes** — the 4 papers attributed to S2 in the cleaned-up matrix were also verified in OpenAlex during ingestion but no `openalex` raw_record was created. A small follow-up could add that for cleaner provenance.
-6. **13 ERIC `oa_link_dead`** — could be retried with `rrl export --retry-failed` if the ERIC mirror gains coverage, or located manually via the ERIC web UI.
+Carried forward (still open):
+
+1. **PROSPERO registration decision** (manuscript §2.1).
+2. **Data-extraction template** to finalize before reading 2,693 retrieved PDFs (manuscript §2.6).
+3. **Target journal** to lock in (`Manuscript/README.md`).
+4. **ERIC EJ-prefix recovery** — 9,794 EJ-prefix journal records carry `peerreviewed='T'` but have no DOI in the ERIC API payload, and ERIC's `files.eric.ed.gov` mirror does not host them. Recovery would require a DOI-by-title pass against CrossRef → Unpaywall. Yield uncertain; sensitivity-analysis follow-up.
+
+New (added by the v2 rescrape):
+
+5. **Not-retrievable worklist for manual ILL retrieval (n=2,138 papers).** Concentrated in non-Elsevier paywalled content (Taylor & Francis, Wiley, Sage) reachable through Scopus indexing but not the automated retrieval cascade. The lead author's institution can request a bulk ILL pull; the candidate list is the rows in `output/rrl_matrix.xlsx` with `pdf_status = not_retrievable`.
+
+Resolved by this rescrape (no longer open):
+
+- ERIC re-harvest — done as part of the full 4-database harvest.
+- 13 ERIC `oa_link_dead` from v1 — superseded by the wipe-and-rescrape; ERIC OA URLs were re-attempted in this run.
+- Supplementary-channel S2 provenance — supplementary channel was removed before the rescrape (2026-05-18 entry).
+- `work_type='article'` investigation — concluded as part of the revised high_confidence tier criteria (Phase 6).
+
+---
+
+## 2026-05-20 (evening) — Rescrape v2 complete (Phase 8)
+
+Manuscript v2 built (`AI_Higher_Ed_SR_Draft_v2.docx`, 54 KB). README "How it works" Mermaid updated to show all 4 sources + ScienceDirect TDM fallback; scope wording switched from "open-access" to "four scholarly indexes (three open + one institutional-subscription)". PRISMA artifacts regenerated: `prisma_data.md` rewritten with v2 counts including the 13-reason exclusion table and per-source retrieval success; `prisma_flow.md` rebuilt around the 4-database identification block. Both v1 (3-database, OA-only, 448 in matrix) and v2 (4-database, post-pivot, 2,693 in matrix) docx files are retained for comparison. Backups (`pdfs_pre_rescrape/`, `logs_pre_rescrape/`, `data/rrl_pre_rescrape.sqlite`, `output/rrl_matrix_v1.xlsx`, `Manuscript/AI_Higher_Ed_SR_Draft_v1*.docx`) intact pending user sign-off on v2.
+
+Final corpus deltas (v1 → v2):
+
+| Metric | v1 (3-db, OA-only) | v2 (4-db, post-pivot) |
+|---|---:|---:|
+| raw_records | 63,298 | 95,190 |
+| papers (deduped, after fuzzy merge) | 62,290 | 76,416 |
+| Included (in matrix) | 557 | 4,831 |
+| In matrix (PDFs downloaded) | 448 | 2,693 |
+| Not retrievable (matrix flag) | n/a (excluded) | 2,138 |
+| high_confidence | 72 | 1,948 |
+| review_needed | 376 | 2,883 |
+| Era split (matrix) | 493 post / 64 pre | 4,656 post / 175 pre |
 
 ---
 

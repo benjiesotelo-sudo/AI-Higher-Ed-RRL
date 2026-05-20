@@ -1,24 +1,24 @@
 # AI in Higher Education RRL Pipeline
 
-A Python CLI that harvests, deduplicates, screens, and downloads **open-access** academic papers on AI / GenAI / ChatGPT / LLM **adoption** in higher education, then produces an RRL (review-of-related-literature) matrix in xlsx, the downloaded PDFs, and structured logs.
+A Python CLI that harvests, deduplicates, screens, and downloads academic papers on AI / GenAI / ChatGPT / LLM **adoption** in higher education, then produces an RRL (review-of-related-literature) matrix in xlsx, the downloaded PDFs, and structured logs. Coverage spans four scholarly indexes (three open + one institutional-subscription), with full-text retrieval through the open-access cascade plus the ScienceDirect TDM API for Elsevier-published papers.
 
 ## What this is for
 
-A reproducible, auditable corpus you can read and cite. Two output tiers — `high_confidence` and `review_needed` — surface borderline papers for manual judgment rather than silently dropping them.
+A reproducible, auditable corpus you can read and cite. Two output tiers — `high_confidence` and `review_needed` — surface borderline papers for manual judgment rather than silently dropping them. Papers passing screening but with no retrievable full text are reported as `not_retrievable` (distinct from formal exclusion) so the candidate worklist for interlibrary-loan retrieval stays visible.
 
 ## Scope
 
 **Included.** Faculty using ChatGPT / LLMs to teach. Students using AI tools for coursework (surveys, attitudes, academic integrity, learning outcomes). Institutional policy / governance. AI-literacy programs that teach students *to use* AI.
 
-**Excluded.** K-12-only contexts. AI/ML as a CS subject ("AI-as-curriculum"). Closed-access papers. Non-English papers. Conceptual/opinion pieces and literature/systematic reviews (the screen requires empirical work with data).
+**Excluded.** K-12-only contexts. AI/ML as a CS subject ("AI-as-curriculum"). Non-English papers. Conceptual/opinion pieces and literature/systematic reviews (the screen requires an empirical methodology signal in the abstract). Chinese ideological-political pedagogy subdomain. Retracted papers. Outreach / community-service writeups.
 
 **Date range:** 2020–2026, tagged `pre_chatgpt` (≤2022) and `post_chatgpt` (≥2023).
 
-**Sources used:** OpenAlex (primary), ERIC (education-specific gray lit), Semantic Scholar (broad). DOAJ + Unpaywall for quality + OA verification. CrossRef + CORE on demand.
+**Sources used:** OpenAlex (primary), Scopus (institutional-subscription; Elsevier / T&F / Wiley / Sage coverage), ERIC (education-specific gray lit), Semantic Scholar (broad). DOAJ + Unpaywall for quality + OA verification. CrossRef + CORE on demand, plus ScienceDirect TDM for Elsevier `10.1016/*` full-text retrieval.
 
 ## How it works
 
-A single `rrl` command kicks off the whole pipeline. Records flow from three open scholarly indexes through a deduplication cascade, a quality-flag enrichment pass, a seven-stage screening cascade, and a quality-tier triage before being downloaded and exported. Every stage is idempotent — interrupt it and the next run picks up where it left off.
+A single `rrl` command kicks off the whole pipeline. Records flow from four scholarly indexes (three open + one institutional-subscription) through a deduplication cascade, a quality-flag enrichment pass, a thirteen-stage screening cascade, and a quality-tier triage before being downloaded and exported. Every stage is idempotent — interrupt it and the next run picks up where it left off.
 
 The diagram below uses three shape conventions: **rounded boxes = external services**, **rectangles = pipeline stages or outputs**, **diamonds = decisions**. Dashed lines mark either an enrichment-time service lookup or an exclusion branch out of the main flow.
 
@@ -28,44 +28,36 @@ flowchart TD
     SVC_OA([OpenAlex API])
     SVC_ERIC([ERIC API])
     SVC_S2([Semantic Scholar API])
+    SVC_SCO([Scopus Search API])
 
     %% Harvest + dedup
     SVC_OA --> HARV
     SVC_ERIC --> HARV
     SVC_S2 --> HARV
-    HARV[Harvest records<br/>AI × HE query, 2020–2026, English] --> DEDUP[Dedup cascade<br/>DOI → OpenAlex ID → title+year+author signature]
+    SVC_SCO --> HARV
+    HARV[Harvest records<br/>AI × HE query, 2020–2026, English] --> DEDUP[Dedup cascade<br/>DOI → OpenAlex ID → title+year+author<br/>+ fuzzy-fingerprint merge pass]
 
     %% Enrichment
-    DEDUP --> ENR[Lift quality flags<br/>is_oa · oa_pdf_url · is_peer_reviewed · is_in_doaj]
+    DEDUP --> ENR[Lift quality flags<br/>is_oa · oa_pdf_url · is_peer_reviewed · is_in_doaj · citation_count]
     SVC_DOAJ([DOAJ]) -. is_in_doaj per ISSN .-> ENR
     SVC_UPW([Unpaywall]) -. best OA URL per DOI .-> ENR
     SVC_ERICF([files.eric.ed.gov]) -. ED-prefix native PDF URL .-> ENR
+    SVC_SCO -. citation count per DOI .-> ENR
 
-    %% Screening cascade
-    ENR --> F1{Year 2020–2026?}
-    F1 -- no --> X1[excluded: wrong_date]
-    F1 -- yes --> F2{English?}
-    F2 -- no --> X2[excluded: non_english]
-    F2 -- yes --> F3{Open-access<br/>with PDF URL?}
-    F3 -- no --> X3[excluded: not_oa]
-    F3 -- yes --> F4{Topic match<br/>AI × HE?}
-    F4 -- no --> X4[excluded: off_topic]
-    F4 -- yes --> F5{Not K-12-only?}
-    F5 -- no --> X5[excluded: k12_only]
-    F5 -- yes --> F6{Peer-reviewed?}
-    F6 -- no --> X6[excluded: not_peer_reviewed]
-    F6 -- yes --> F7{Empirical?<br/>not a review or editorial}
-    F7 -- no --> X7[excluded: non_empirical]
-    F7 -- yes --> TIER{Quality-tier triage}
-    TIER -- standard work-type<br/>+ peer-review or DOAJ --> HC[high_confidence]
-    TIER -- borderline<br/>predatory list,<br/>non-standard work-type,<br/>K-12/HE mixed,<br/>CS-curriculum signal --> RN[review_needed]
+    %% Screening cascade (condensed view)
+    ENR --> SCREEN[Screening cascade<br/>13 ordered filters: date · language metadata ·<br/>retracted · language script · non-research ·<br/>out-of-scope subdomain · topic · K-12 ·<br/>peer-review · non-empirical · outreach ·<br/>empirical signal · old-low-citation]
+    SCREEN -. any rule fires .-> XOUT[excluded with reason]
+    SCREEN --> TIER{Quality-tier triage}
+    TIER -- article/journal-article<br/>+ citations ≥ 1 OR recent<br/>+ abstract ≥ 400 chars<br/>+ DOAJ or major publisher --> HC[high_confidence]
+    TIER -- any criterion missed<br/>or borderline --> RN[review_needed]
 
-    %% Retrieval + output
+    %% Retrieval + output (cascade order shown)
     HC --> DL[Download PDFs<br/>validate %PDF magic-bytes + 10 KB min]
     RN --> DL
-    SVC_UPW -. retrieval URL .-> DL
-    SVC_OA -. retrieval URL fallback .-> DL
-    SVC_CORE([CORE]) -. last-resort PDF lookup .-> DL
+    SVC_UPW -. 1. retrieval URL .-> DL
+    SVC_OA  -. 2. retrieval URL fallback .-> DL
+    SVC_CORE([CORE]) -. 3. CORE-by-DOI then by-title<br/>throttled to 10/min .-> DL
+    SVC_SD([ScienceDirect TDM]) -. 4. fallback for 10.1016/* DOIs .-> DL
     DL --> OUT[rrl_matrix.xlsx<br/>+ pdfs/year/paper_id.pdf<br/>+ run_manifest.json<br/>+ logs/*.jsonl]
 ```
 
@@ -86,7 +78,8 @@ This section walks a brand-new clone of the repo through the full pipeline. The 
 | --- | --- | --- | --- |
 | `OPENALEX_EMAIL` | **Yes** | Your real email | Goes in the User-Agent for OpenAlex's polite pool and is the `email=` param for Unpaywall. Both APIs hard-fail on a missing/placeholder value (Unpaywall returns 422). |
 | `SEMANTIC_SCHOLAR_API_KEY` | Practically yes | Free at <https://www.semanticscholar.org/product/api> (request form, ~1 business day) | Lifts S2 from 1 req/s to 5 req/s. Without it, S2 harvest takes 3–4 hours; with it, ~30 minutes. The pipeline runs without it but is much slower. |
-| `CORE_API_KEY` | Optional | Free at <https://core.ac.uk/services/api> | Fallback PDF lookup when Unpaywall + OpenAlex both lack a usable PDF URL for an included paper. Skippable for a first run. |
+| `ELSEVIER_API_KEY` | Practically yes | Institutional Scopus Search API key (free for institutional subscribers) | Enables Scopus harvest (22K+ subscription-tier records on a full run) and ScienceDirect TDM full-text retrieval for Elsevier-published papers (DOIs in `10.1016/*`). The pipeline runs without it but loses subscription-tier coverage. |
+| `CORE_API_KEY` | Optional | Free at <https://core.ac.uk/services/api> | Fallback PDF lookup (rate-limited 10/min on the free tier) when OA URL / Unpaywall / ScienceDirect all lack a usable PDF for an included paper. Skippable for a first run. |
 
 ### 2. One-time setup
 
@@ -108,16 +101,17 @@ The `.env` file is read from the current working directory and *overrides* any m
 Stages share a single SQLite DB (`data/rrl.sqlite`); each stage reads what the prior stage wrote. You can run them one at a time to inspect intermediate results.
 
 ```bash
-rrl harvest                 # 1. search OpenAlex + ERIC + S2 → raw_records table
-rrl harvest --only s2       #    or just one adapter
+rrl harvest                 # 1. search OpenAlex + ERIC + S2 + Scopus → raw_records table
+rrl harvest --only scopus   #    or just one adapter
 rrl harvest --since 2026-01-01   # restrict to a publication date range
 
 rrl dedup                   # 2. build canonical papers from raw_records
-                            #    (DOI match → OpenAlex ID → title+year+author signature)
+                            #    (DOI → OpenAlex ID → title+year+author signature
+                            #     → fuzzy-fingerprint merge pass for DOI-less dupes)
 rrl dedup --review          #    write data/dedup_review.csv of likely duplicates
 rrl dedup --merge L W       #    manually merge paper L into paper W
 
-rrl enrich                  # 3. attach DOAJ + Unpaywall + OpenAlex quality flags
+rrl enrich                  # 3. attach DOAJ + Unpaywall + OpenAlex + Scopus quality flags
 rrl enrich --only unpaywall #    re-run a single pass
                             #    (resumable: skips papers already checked)
 
@@ -182,12 +176,12 @@ If you only need a smoke test, `rrl harvest --only openalex --since 2026-01-01` 
 
 ## Limitations (read this before citing)
 
-1. **OA-only corpus.** Significant closed-access literature in flagship journals (Computers & Education, Studies in Higher Education, Internet & Higher Education) is **not** in the matrix. This is *not* "the literature" — it is the open-access slice of it.
-2. **No Scopus / Web of Science / EBSCO.** Those databases are paywalled and have no free API. A complete review would supplement this corpus with manual hand-searches in those indices.
-3. **Topic boundary is regex-based.** The K-12-only / AI-as-curriculum exclusions and the AI/HE inclusion are keyword filters. The `review_needed` tier exists to surface borderline calls for human judgment.
+1. **Publisher skew in the retrievable set.** Full-text retrieval works through OA URLs (Unpaywall / OpenAlex direct), CORE, and the **ScienceDirect TDM API for Elsevier `10.1016/*` papers** (100% reliable in this run, 153/153). Subscription-tier content from Taylor & Francis, Wiley, and Sage is identified through Scopus metadata but not retrievable through the automated cascade and appears as `not_retrievable` in the matrix unless the paper also has an open-access URL. The 44% not-retrievable rate is concentrated here.
+2. **No Web of Science or EBSCO.** Those two databases have no free API and were not searched. With OpenAlex, Scopus, ERIC, and Semantic Scholar together the omission gap is narrower than v1 (which lacked Scopus) but still non-zero.
+3. **Topic boundary is regex-based, restricted to title + abstract head.** AI × HE intersection must appear in the title or the first 300 characters of the abstract (the v2 tightening). The `review_needed` tier surfaces borderline calls for human judgment.
 4. **Predatory-venue detection is best-effort.** No comprehensive free machine-readable list exists. We use DOAJ membership + a tiny blocklist of universally-acknowledged repeat offenders. Anything dubious lands in `review_needed`.
-5. **Dedup has known gaps.** Preprint/journal pairs without shared DOIs may both appear; `rrl dedup --review` surfaces likely duplicates for manual merge.
-6. **Peer-review signal is uneven.** OpenAlex and ERIC carry explicit peer-review flags and are trusted; S2-only papers without an OpenAlex match cannot be confirmed peer-reviewed and are excluded by the protocol's strict gate.
+5. **Dedup has residual gaps.** The fuzzy-fingerprint pass collapsed 1,154 DOI-less duplicates in v2, but preprint/journal pairs whose titles drift substantially between platforms may still escape; `rrl dedup --review` surfaces remaining candidates for manual merge.
+6. **Peer-review signal is uneven.** OpenAlex, Scopus, and ERIC carry explicit peer-review flags and are trusted; S2-only papers without a corroborating source are excluded by the protocol's strict gate.
 7. **No content interpretation.** Methods, sample, findings, theoretical framework — those columns are intentionally absent. They cannot be auto-extracted reliably.
 8. **English-only.** Significant work in Mandarin, Spanish, Portuguese, and other languages is excluded.
 
@@ -333,7 +327,7 @@ No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --s
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
 
-_Last run: 2026-05-20T00:29:13.183097+00:00_
+_Last run: 2026-05-20T10:32:42.894329+00:00_
 
 **Corpus summary**
 - raw_records: 95190
@@ -358,8 +352,8 @@ _Last run: 2026-05-20T00:29:13.183097+00:00_
 - non_empirical: 529
 
 **Stage runtimes (seconds)**
-- export_pdf: 46920.1
-- export_matrix: 5.9
+- export_pdf: 0.4
+- export_matrix: 5.7
 
 **By source adapter** _(records contributed before dedup)_
 - eric: 16177
