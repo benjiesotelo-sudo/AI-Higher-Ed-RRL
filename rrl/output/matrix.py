@@ -53,20 +53,23 @@ def _row_values(conn, p) -> list:
         p["pdf_filename"], p["pdf_status"], _source_apis(conn, p["paper_id"]), p["abstract"],
     ]
 
-QUERY = """
+_QUERY_BASE = """
 SELECT * FROM papers
 WHERE included = 1
   AND paper_id NOT IN (SELECT loser_id FROM paper_merges)
   AND quality_tier = ?
-ORDER BY year DESC, title
 """
+_QUERY_PDF_ONLY = " AND pdf_status = 'downloaded'"
+_QUERY_ORDER = " ORDER BY year DESC, title"
 
-def _write_sheet(ws, conn, tier: str) -> None:
+
+def _write_sheet(ws, conn, tier: str, *, pdf_only: bool = False) -> None:
+    sql = _QUERY_BASE + (_QUERY_PDF_ONLY if pdf_only else "") + _QUERY_ORDER
     ws.append(MATRIX_COLUMNS)
     for cell in ws[1]:
         cell.font = Font(bold=True)
     ws.freeze_panes = "A2"
-    for p in conn.execute(QUERY, (tier,)).fetchall():
+    for p in conn.execute(sql, (tier,)).fetchall():
         ws.append(_row_values(conn, p))
         if p["doi"]:
             ws.cell(row=ws.max_row, column=MATRIX_COLUMNS.index("doi") + 1).hyperlink = f"https://doi.org/{p['doi']}"
@@ -82,14 +85,24 @@ def _write_sheet(ws, conn, tier: str) -> None:
             max_len = max((len(str(c.value or "")) for c in ws[letter]), default=10)
             ws.column_dimensions[letter].width = min(max_len + 2, 50)
 
-def write_matrix(conn: sqlite3.Connection, out_path: Path) -> dict:
+
+def write_matrix(conn: sqlite3.Connection, out_path: Path, *,
+                 pdf_only: bool = False) -> dict:
+    """Write the two-sheet matrix workbook.
+
+    When ``pdf_only=True``, the matrix is restricted to papers whose PDF was
+    successfully retrieved (``pdf_status='downloaded'``) — the rows the
+    reader can actually open the full text of. Defaults to ``False`` (full
+    matrix, including ``not_retrievable`` rows) to preserve PRISMA
+    transparency in the canonical artefact.
+    """
     out_path.parent.mkdir(parents=True, exist_ok=True)
     wb = Workbook()
     default = wb.active
     wb.remove(default)
     hc = wb.create_sheet("high_confidence")
     rn = wb.create_sheet("review_needed")
-    _write_sheet(hc, conn, "high_confidence")
-    _write_sheet(rn, conn, "review_needed")
+    _write_sheet(hc, conn, "high_confidence", pdf_only=pdf_only)
+    _write_sheet(rn, conn, "review_needed", pdf_only=pdf_only)
     wb.save(out_path)
     return {"high_confidence": hc.max_row - 1, "review_needed": rn.max_row - 1}

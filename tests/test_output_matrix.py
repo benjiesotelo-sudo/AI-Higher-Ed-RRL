@@ -55,3 +55,25 @@ def test_matrix_excludes_unincluded_and_merged_but_includes_unretrievable(tmp_pa
     ids = [hc.cell(row=i, column=1).value for i in range(2, hc.max_row + 1)]
     # p1 (downloaded) AND p_not_retrievable both appear; excluded + merged excluded.
     assert set(ids) == {"p1", "p_not_retrievable"}
+
+
+def test_matrix_pdf_only_drops_not_retrievable_rows(tmp_path):
+    """pdf_only=True restricts the workbook to papers with a downloaded PDF.
+    not_retrievable rows are dropped; tier/merge/included filters still apply."""
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    _seed(conn, "p1", "high_confidence")
+    _seed(conn, "p_not_retrievable", "high_confidence",
+          pdf_status="not_retrievable", pdf_filename=None)
+    _seed(conn, "p2", "review_needed", title="Other", pdf_filename="2023/y.pdf")
+    _seed(conn, "p_rn_unretrievable", "review_needed", title="Unretrievable RN",
+          pdf_status="not_retrievable", pdf_filename=None)
+    out = tmp_path / "out/matrix_pdfs_only.xlsx"
+    counts = write_matrix(conn, out, pdf_only=True)
+    assert counts == {"high_confidence": 1, "review_needed": 1}
+    wb = load_workbook(out)
+    hc_ids = [wb["high_confidence"].cell(row=i, column=1).value
+              for i in range(2, wb["high_confidence"].max_row + 1)]
+    rn_ids = [wb["review_needed"].cell(row=i, column=1).value
+              for i in range(2, wb["review_needed"].max_row + 1)]
+    assert hc_ids == ["p1"]
+    assert rn_ids == ["p2"]

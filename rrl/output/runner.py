@@ -194,6 +194,12 @@ def run_export(db: Path, *, session: requests.Session, pdf_root: Path, matrix_pa
 
     t0 = time.monotonic()
     matrix_counts = write_matrix(conn, matrix_path)
+    # Companion artefact: same two-sheet layout but restricted to papers
+    # whose PDF was successfully downloaded. The canonical matrix above
+    # keeps not_retrievable rows for PRISMA transparency; this filtered
+    # workbook is the "rows whose full text you can open right now" view.
+    pdfs_only_path = matrix_path.with_name(matrix_path.stem + "_pdfs_only" + matrix_path.suffix)
+    pdfs_only_counts = write_matrix(conn, pdfs_only_path, pdf_only=True)
     runtimes["export_matrix"] = time.monotonic() - t0
 
     counts = _counts(conn)
@@ -202,4 +208,9 @@ def run_export(db: Path, *, session: requests.Session, pdf_root: Path, matrix_pa
 
     appendix = _format_appendix(counts, runtimes, manifest["run_at_utc"], pdf_summary=pdf_summary)
     update_appendix(readme_path, appendix)
-    return {"pdfs": pdf_summary, "matrix": matrix_counts, "counts": counts}
+    return {
+        "pdfs": pdf_summary,
+        "matrix": matrix_counts,
+        "matrix_pdfs_only": pdfs_only_counts,
+        "counts": counts,
+    }
