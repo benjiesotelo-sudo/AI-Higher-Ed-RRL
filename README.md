@@ -154,7 +154,8 @@ If you change the screen rules or API keys, just rerun the affected stages — n
 
 | Path | What it is |
 | --- | --- |
-| `output/rrl_matrix.xlsx` | The deliverable. Two sheets, `high_confidence` and `review_needed`. Bibliographic + quality flags only — no methods/findings columns (those you fill manually while reading). |
+| `output/rrl_matrix.xlsx` | The deliverable. Two sheets, `high_confidence` and `review_needed`. Bibliographic + quality flags only — no methods/findings columns (those you fill manually while reading). Includes `pdf_status=not_retrievable` rows for PRISMA transparency. |
+| `output/rrl_matrix_pdfs_only.xlsx` | Same two-sheet layout as `rrl_matrix.xlsx`, restricted to papers whose PDF was successfully downloaded — the "rows whose full text you can open right now" view. Auto-emitted alongside the canonical matrix on every `rrl export`. Current corpus: 2,648 of the 4,831 matrix-set papers. |
 | `output/run_manifest.json` | Pipeline version, query-term hash, per-stage counts, SHA-256 of the xlsx, runtimes. For reproducibility / audit. |
 | `pdfs/<year>/<paper_id>.pdf` | Downloaded OA PDFs, foldered by publication year. Filename is the internal `paper_id` so it joins back to the matrix on that key. |
 | `logs/<stage>-YYYY-MM-DD.jsonl` | Per-stage structured logs (one JSON object per line). Every search query, dedup decision, screening rejection, and PDF attempt. |
