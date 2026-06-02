@@ -370,13 +370,19 @@ def test_revised_high_confidence_recent_paper_no_citations_ok():
     assert decide_quality_tier(p) == "high_confidence"
 
 
-def test_revised_high_confidence_requires_long_abstract():
-    """abstract_length < 400 → review_needed."""
+def test_short_abstract_does_not_demote():
+    """Abstract length is no longer a tier criterion.
+
+    The inclusion pipeline already guarantees a substantive, methodology-bearing
+    abstract upstream (the >=200-char apparatus gate plus the empirical-signal
+    gate), so a short abstract alone never demotes a paper that passes every
+    other tier gate. Empirically the old >=400-char rule demoted zero papers.
+    """
     p = {"included": 1, "is_peer_reviewed": 1, "is_in_doaj": 0,
          "work_type": "article", "publisher": "Elsevier",
          "k12_mixed": False, "abstract_length": 350,
          "citation_count": 5, "year": 2024}
-    assert decide_quality_tier(p) == "review_needed"
+    assert decide_quality_tier(p) == "high_confidence"
 
 
 def test_revised_high_confidence_requires_major_publisher_or_doaj():
@@ -675,15 +681,33 @@ def test_real_research_with_word_service_is_not_outreach():
     assert r["included"] == 1, r
 
 
-def test_short_abstract_excluded_as_non_research():
-    """Abstracts under 200 characters indicate stubs/index entries, not research."""
+def test_short_abstract_is_screened_not_excluded_for_length():
+    """A short but PRESENT abstract is no longer excluded for length.
+
+    The abstract-length floor was replaced by a has-abstract / no-abstract test.
+    A short abstract is screened normally; with a topic match, peer-review, and a
+    methodology signal it is included.
+    """
     p = {
         "year": 2024, "language": "en",
         "title": "ChatGPT in university education",
-        "abstract": "Survey of 25 participants. Brief.",  # <200 chars
+        "abstract": "Survey of 25 participants. Brief.",  # <200 chars, but real
         "venue": "J", "is_peer_reviewed": 1, "work_type": "article",
     }
-    assert evaluate_paper(p)["exclusion_reason"] == "non_research_paper"
+    assert evaluate_paper(p)["included"] == 1
+
+
+def test_missing_abstract_excluded_as_no_abstract():
+    """A paper with no abstract cannot be screened and is excluded as `no_abstract`
+    (an honest 'unscreenable' label), not as `non_research_paper`."""
+    base = {
+        "year": 2024, "language": "en",
+        "title": "ChatGPT in university education",
+        "venue": "J", "is_peer_reviewed": 1, "work_type": "article",
+    }
+    assert evaluate_paper({**base, "abstract": ""})["exclusion_reason"] == "no_abstract"
+    assert evaluate_paper({**base, "abstract": None})["exclusion_reason"] == "no_abstract"
+    assert evaluate_paper({**base, "abstract": "   "})["exclusion_reason"] == "no_abstract"
 
 
 def test_book_apparatus_titles_excluded_as_non_research():

@@ -14,7 +14,6 @@ from rrl.config import (
 # than a real date so tests are deterministic and the rule advances naturally
 # when the corpus window slides.
 RECENT_YEAR_THRESHOLD = YEAR_MAX - 1
-HIGH_CONFIDENCE_MIN_ABSTRACT_CHARS = 400
 HIGH_CONFIDENCE_WORK_TYPES = frozenset({"article", "journal-article"})
 
 def _alt(terms: list[str]) -> str:
@@ -124,17 +123,10 @@ NON_RESEARCH_TITLES = frozenset({
     "foreword", "preface", "acknowledgments", "acknowledgements", "index",
 })
 
-MIN_ABSTRACT_CHARS = 200
-
-
-def is_non_research_paper(title: str | None, abstract: str | None) -> bool:
-    """Apparatus-style title, or abstract too short to be a real paper."""
+def is_non_research_paper(title: str | None) -> bool:
+    """Apparatus-style title (book front/back-matter), not a research paper."""
     t = (title or "").strip().rstrip(".").lower()
-    if t in NON_RESEARCH_TITLES:
-        return True
-    if len((abstract or "").strip()) < MIN_ABSTRACT_CHARS:
-        return True
-    return False
+    return t in NON_RESEARCH_TITLES
 
 
 # Non-Latin script detection: catches abstracts whose language metadata says
@@ -255,8 +247,10 @@ def evaluate_paper(p: dict) -> dict:
         return {"included": 0, "exclusion_reason": "retracted"}
     if is_language_mismatch(p.get("abstract")):
         return {"included": 0, "exclusion_reason": "language_mismatch"}
-    if is_non_research_paper(p.get("title"), p.get("abstract")):
+    if is_non_research_paper(p.get("title")):
         return {"included": 0, "exclusion_reason": "non_research_paper"}
+    if not (p.get("abstract") or "").strip():
+        return {"included": 0, "exclusion_reason": "no_abstract"}
     if is_ideological_political_subdomain(p.get("title"), p.get("abstract")):
         return {"included": 0, "exclusion_reason": "out_of_scope_subdomain"}
     text = _topic_text(p)
@@ -292,7 +286,6 @@ def evaluate_paper(p: dict) -> dict:
         "cs_curriculum_signal": cs_curr_signal,
         "citation_count": p.get("citation_count"),
         "year": year,
-        "abstract_length": len((p.get("abstract") or "").strip()),
     })
     return {
         "included": 1,
@@ -328,7 +321,6 @@ def decide_quality_tier(p: dict) -> str:
       * work_type is 'article' / 'journal-article' (book-chapter / proceedings /
         review / dataset / etc. → review_needed)
       * citation_count >= 1 OR year is within the last 12 months (RECENT_YEAR_THRESHOLD)
-      * abstract length >= 400 characters
       * DOAJ-listed OR publisher matches MAJOR_PUBLISHER_ALLOWLIST
     The existing demotion signals (k12_mixed, cs_curriculum_signal, predatory
     publisher) still force review_needed.
@@ -344,8 +336,6 @@ def decide_quality_tier(p: dict) -> str:
     citations = p.get("citation_count") or 0
     year = p.get("year") or 0
     if citations < 1 and year < RECENT_YEAR_THRESHOLD:
-        return "review_needed"
-    if (p.get("abstract_length") or 0) < HIGH_CONFIDENCE_MIN_ABSTRACT_CHARS:
         return "review_needed"
     if not (p.get("is_in_doaj") == 1 or _publisher_is_major(publisher)):
         return "review_needed"

@@ -34,11 +34,12 @@ def _counts(conn: sqlite3.Connection) -> dict:
     matrix_total = n(f"SELECT COUNT(*) FROM papers WHERE {_MATRIX_FILTER}")
 
     # Dynamic exclusion-reason distribution: every reason currently in the
-    # papers table, not a hardcoded list. Sorted desc by count to put the
-    # biggest filters first.
+    # papers table, not a hardcoded list, on the matrix (non-loser) basis so
+    # the counts reconcile with the funnel. Sorted desc by count, biggest first.
     exclusion_rows = conn.execute(
         "SELECT exclusion_reason, COUNT(*) FROM papers "
         "WHERE included = 0 AND exclusion_reason IS NOT NULL "
+        "AND paper_id NOT IN (SELECT loser_id FROM paper_merges) "
         "GROUP BY exclusion_reason ORDER BY 2 DESC"
     ).fetchall()
     exclusions = {row[0]: row[1] for row in exclusion_rows}
@@ -136,7 +137,7 @@ def _format_appendix(counts: dict, runtimes: dict, run_at: str, pdf_summary: dic
         "**By quality tier** _(matrix set)_",
         f"- high_confidence: **{counts['high_confidence']:,}** "
             f"({_pct(counts['high_confidence'], matrix_total)}) — work_type article + "
-            f"citations ≥ 1 or recent + abstract ≥ 400 chars + DOAJ/major publisher",
+            f"citations ≥ 1 or recent + DOAJ/major publisher",
         f"- review_needed: **{counts['review_needed']:,}** "
             f"({_pct(counts['review_needed'], matrix_total)}) — surfaced for manual review",
         "",

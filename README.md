@@ -6,7 +6,7 @@ A Python CLI that harvests, deduplicates, screens, and downloads academic papers
 
 A reproducible, auditable corpus you can read and cite. Two output tiers — `high_confidence` and `review_needed` — surface borderline papers for manual judgment rather than silently dropping them. Papers passing screening but with no retrievable full text are reported as `not_retrievable` (distinct from formal exclusion) so the candidate worklist for interlibrary-loan retrieval stays visible.
 
-> **Methodology version: v2 (2026-05-20).** This README and the live `output/` artefacts describe the post-pivot pipeline: four databases (OpenAlex, Scopus, ERIC, Semantic Scholar), no open-access restriction on inclusion, 13-stage screening, ScienceDirect TDM retrieval for Elsevier DOIs. The pre-pivot **v1** (three databases, open-access-only, 7-stage screening; commits up to git tag `v1-pre-rescrape`) is preserved for comparison: `AI_Higher_Ed_SR_Draft_v1.docx` and `rrl_matrix_v1.xlsx` are retained in the project's `OLD Files/` backup folder, and `PROGRESS.md` documents the pivot in the 2026-05-18 entry. See git history for the exact changes.
+> **Methodology version: v2 (2026-05-20).** This README and the live `output/` artefacts describe the post-pivot pipeline: four databases (OpenAlex, Scopus, ERIC, Semantic Scholar), no open-access restriction on inclusion, 14-stage screening, ScienceDirect TDM retrieval for Elsevier DOIs. The pre-pivot **v1** (three databases, open-access-only, 7-stage screening; commits up to git tag `v1-pre-rescrape`) is preserved for comparison: `AI_Higher_Ed_SR_Draft_v1.docx` and `rrl_matrix_v1.xlsx` are retained in the project's `OLD Files/` backup folder, and `PROGRESS.md` documents the pivot in the 2026-05-18 entry. See git history for the exact changes.
 
 ## Scope
 
@@ -20,7 +20,7 @@ A reproducible, auditable corpus you can read and cite. Two output tiers — `hi
 
 ## How it works
 
-A single `rrl` command kicks off the whole pipeline. Records flow from four scholarly indexes (three open + one institutional-subscription) through a deduplication cascade, a quality-flag enrichment pass, a thirteen-stage screening cascade, and a quality-tier triage before being downloaded and exported. Every stage is idempotent — interrupt it and the next run picks up where it left off.
+A single `rrl` command kicks off the whole pipeline. Records flow from four scholarly indexes (three open + one institutional-subscription) through a deduplication cascade, a quality-flag enrichment pass, a fourteen-stage screening cascade, and a quality-tier triage before being downloaded and exported. Every stage is idempotent — interrupt it and the next run picks up where it left off.
 
 The diagram below uses three shape conventions: **rounded boxes = external services**, **rectangles = pipeline stages or outputs**, **diamonds = decisions**. Dashed lines mark either an enrichment-time service lookup or an exclusion branch out of the main flow.
 
@@ -47,10 +47,10 @@ flowchart TD
     SVC_SCO -. citation count per DOI .-> ENR
 
     %% Screening cascade (condensed view)
-    ENR --> SCREEN[Screening cascade<br/>13 ordered filters: date · language metadata ·<br/>retracted · language script · non-research ·<br/>out-of-scope subdomain · topic · K-12 ·<br/>peer-review · non-empirical · outreach ·<br/>empirical signal · old-low-citation]
+    ENR --> SCREEN[Screening cascade<br/>14 ordered filters: date · language metadata ·<br/>retracted · language script · non-research · no-abstract ·<br/>out-of-scope subdomain · topic · K-12 ·<br/>peer-review · non-empirical · outreach ·<br/>empirical signal · old-low-citation]
     SCREEN -. any rule fires .-> XOUT[excluded with reason]
     SCREEN --> TIER{Quality-tier triage}
-    TIER -- article/journal-article<br/>+ citations ≥ 1 OR recent<br/>+ abstract ≥ 400 chars<br/>+ DOAJ or major publisher --> HC[high_confidence]
+    TIER -- article/journal-article<br/>+ citations ≥ 1 OR recent<br/>+ DOAJ or major publisher --> HC[high_confidence]
     TIER -- any criterion missed<br/>or borderline --> RN[review_needed]
 
     %% Retrieval + output (cascade order: oa → core → sciencedirect)
@@ -155,7 +155,7 @@ If you change the screen rules or API keys, just rerun the affected stages — n
 | Path | What it is |
 | --- | --- |
 | `output/rrl_matrix.xlsx` | The deliverable. Two sheets, `high_confidence` and `review_needed`. Bibliographic + quality flags only — no methods/findings columns (those you fill manually while reading). Includes `pdf_status=not_retrievable` rows for PRISMA transparency. |
-| `output/rrl_matrix_pdfs_only.xlsx` | Same two-sheet layout as `rrl_matrix.xlsx`, restricted to papers whose PDF was successfully downloaded — the "rows whose full text you can open right now" view. Auto-emitted alongside the canonical matrix on every `rrl export`. Current corpus: 2,648 of the 4,831 matrix-set papers. |
+| `output/rrl_matrix_pdfs_only.xlsx` | Same two-sheet layout as `rrl_matrix.xlsx`, restricted to papers whose PDF was successfully downloaded — the "rows whose full text you can open right now" view. Auto-emitted alongside the canonical matrix on every `rrl export`. Current corpus: 2,648 of the 4,832 matrix-set papers. |
 | `output/run_manifest.json` | Pipeline version, query-term hash, per-stage counts, SHA-256 of the xlsx, runtimes. For reproducibility / audit. |
 | `pdfs/<year>/<paper_id>.pdf` | Downloaded OA PDFs, foldered by publication year. Filename is the internal `paper_id` so it joins back to the matrix on that key. |
 | `logs/<stage>-YYYY-MM-DD.jsonl` | Per-stage structured logs (one JSON object per line). Every search query, dedup decision, screening rejection, and PDF attempt. |
@@ -179,7 +179,7 @@ If you only need a smoke test, `rrl harvest --only openalex --since 2026-01-01` 
 
 ## Limitations (read this before citing)
 
-1. **Publisher skew in the retrievable set.** Full-text retrieval works through OA URLs (Unpaywall / OpenAlex direct), CORE, and the **ScienceDirect TDM API for Elsevier `10.1016/*` papers** (100% reliable in this run, 153/153). Subscription-tier content from Taylor & Francis, Wiley, and Sage is identified through Scopus metadata but not retrievable through the automated cascade and appears as `not_retrievable` in the matrix unless the paper also has an open-access URL. The 44% not-retrievable rate is concentrated here.
+1. **Publisher skew in the retrievable set.** Full-text retrieval works through OA URLs (Unpaywall / OpenAlex direct), CORE, and the **ScienceDirect TDM API for Elsevier `10.1016/*` papers** (100% reliable in this run, 153/153). Subscription-tier content from Taylor & Francis, Wiley, and Sage is identified through Scopus metadata but not retrievable through the automated cascade and appears as `not_retrievable` in the matrix unless the paper also has an open-access URL. The 45% not-retrievable rate is concentrated here.
 2. **No Web of Science or EBSCO.** Those two databases have no free API and were not searched. With OpenAlex, Scopus, ERIC, and Semantic Scholar together the omission gap is narrower than v1 (which lacked Scopus) but still non-zero.
 3. **Topic boundary is regex-based, restricted to title + abstract head.** AI × HE intersection must appear in the title or the first 300 characters of the abstract (the v2 tightening). The `review_needed` tier surfaces borderline calls for human judgment.
 4. **Predatory-venue detection is best-effort.** No comprehensive free machine-readable list exists. We use DOAJ membership + a tiny blocklist of universally-acknowledged repeat offenders. Anything dubious lands in `review_needed`.
@@ -334,35 +334,36 @@ No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --s
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
 
-_Last run: 2026-05-20T10:58:42.354669+00:00_
+_Last run: 2026-06-02T10:21:31.969853+00:00_
 
 **Corpus pipeline** — what happened, stage by stage
 - raw_records: **95,190** — harvested across all configured search adapters
 - after exact-key dedup: **77,570** — collapsed 17,620 duplicates (18.5% dedup rate) via the DOI → OpenAlex ID → title+year+author cascade
 - after fuzzy-merge pass: **76,416** — an additional **1,154** DOI-less duplicates collapsed by the first-6-words + year + author-surname fingerprint
-- excluded by screening: **72,710** (95.2% of post-dedup) — one canonical reason per paper
-- in matrix (included, non-merged): **4,831** — the final analysis set
+- excluded by screening: **71,584** (93.7% of post-dedup) — one canonical reason per paper
+- in matrix (included, non-merged): **4,832** — the final analysis set
 
 **By quality tier** _(matrix set)_
-- high_confidence: **1,948** (40.3%) — work_type article + citations ≥ 1 or recent + abstract ≥ 400 chars + DOAJ/major publisher
-- review_needed: **2,883** (59.7%) — surfaced for manual review
+- high_confidence: **1,948** (40.3%) — work_type article + citations ≥ 1 or recent + DOAJ/major publisher
+- review_needed: **2,884** (59.7%) — surfaced for manual review
 
 **By era** _(matrix set)_
-- post_chatgpt (2023–2026): **4,656**
+- post_chatgpt (2023–2026): **4,657**
 - pre_chatgpt (2020–2022): **175**
 
 **Exclusion reasons** _(first filter to fire wins)_
-- off_topic: **46,660**
-- non_english: **8,537**
-- no_empirical_signal: **8,079**
-- non_research_paper: **6,523**
-- not_peer_reviewed: **1,729**
-- non_empirical: **529**
-- k12_only: **202**
+- off_topic: **45,995**
+- non_english: **8,531**
+- no_empirical_signal: **8,035**
+- no_abstract: **6,104**
+- not_peer_reviewed: **1,462**
+- non_empirical: **525**
+- non_research_paper: **282**
+- k12_only: **200**
 - out_of_scope_subdomain: **144**
 - language_mismatch: **142**
 - retracted: **127**
-- low_citation_old: **23**
+- low_citation_old: **22**
 - outreach_paper: **15**
 
 **By source adapter** _(records contributed before dedup)_
@@ -373,7 +374,7 @@ _Last run: 2026-05-20T10:58:42.354669+00:00_
 
 **PDF retrieval** _(matrix set)_
 - downloaded: **2,648** (54.8% success rate)
-- not_retrievable: **2,183** — candidate worklist for interlibrary-loan retrieval
+- not_retrievable: **2,184** — candidate worklist for interlibrary-loan retrieval
 
 **Per-source PDF attempts** _(which retrieval source delivered each download)_
 
@@ -385,6 +386,6 @@ _Last run: 2026-05-20T10:58:42.354669+00:00_
 | core_title | 45 | 95 | 47.4% |
 
 **Stage runtimes (seconds)**
-- export_pdf: 0.4
-- export_matrix: 5.7
+- export_pdf: 0.3
+- export_matrix: 8.6
 <!-- END AUTO-GENERATED -->

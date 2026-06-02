@@ -1,8 +1,8 @@
 {
   "schema_version": 1,
   "pipeline_version": "0.1.0",
-  "run_id": "ca35b766-0a89-4e30-aa8c-9b8d5e1849fc",
-  "run_at_utc": "2026-05-20T10:58:42.354669+00:00",
+  "run_id": "291b80e4-f18e-435f-86f7-d8943246686d",
+  "run_at_utc": "2026-06-02T10:21:31.969853+00:00",
   "query_terms": {
     "ai_terms": [
       "artificial intelligence",
@@ -47,29 +47,30 @@
     "raw_records": 95190,
     "papers_after_dedup": 77570,
     "fuzzy_merges": 1154,
-    "papers_after_screen_included": 4831,
-    "papers_in_matrix": 4831,
-    "papers_after_screen_included_cumulative": 4860,
+    "papers_after_screen_included": 4832,
+    "papers_in_matrix": 4832,
+    "papers_after_screen_included_cumulative": 4861,
     "pdfs_downloaded": 2648,
-    "pdfs_not_retrievable": 2183,
+    "pdfs_not_retrievable": 2184,
     "pdfs_downloaded_cumulative": 2693,
-    "pdfs_not_retrievable_cumulative": 2205,
+    "pdfs_not_retrievable_cumulative": 2206,
     "high_confidence": 1948,
-    "review_needed": 2883,
-    "post_chatgpt": 4656,
+    "review_needed": 2884,
+    "post_chatgpt": 4657,
     "pre_chatgpt": 175,
     "exclusion_reasons": {
-      "off_topic": 46660,
-      "non_english": 8537,
-      "no_empirical_signal": 8079,
-      "non_research_paper": 6523,
-      "not_peer_reviewed": 1729,
-      "non_empirical": 529,
-      "k12_only": 202,
+      "off_topic": 45995,
+      "non_english": 8531,
+      "no_empirical_signal": 8035,
+      "no_abstract": 6104,
+      "not_peer_reviewed": 1462,
+      "non_empirical": 525,
+      "non_research_paper": 282,
+      "k12_only": 200,
       "out_of_scope_subdomain": 144,
       "language_mismatch": 142,
       "retracted": 127,
-      "low_citation_old": 23,
+      "low_citation_old": 22,
       "outreach_paper": 15
     },
     "per_adapter": {
@@ -102,9 +103,9 @@
     ]
   },
   "stage_runtimes_seconds": {
-    "export_pdf": 0.3773656250559725,
-    "export_matrix": 5.693848625000101
+    "export_pdf": 0.3267519170003652,
+    "export_matrix": 8.552495624997391
   },
   "matrix_file": "rrl_matrix.xlsx",
-  "matrix_sha256": "2d57e50d6ae53eaaedbf34ec78eb49fcb3d456490de62277aa8b35d36690f563"
+  "matrix_sha256": "3a10870ebac3b48d5e97343aac5a6afd34438253282351856de2df4fc1a951da"
 }

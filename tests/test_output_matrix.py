@@ -57,6 +57,23 @@ def test_matrix_excludes_unincluded_and_merged_but_includes_unretrievable(tmp_pa
     assert set(ids) == {"p1", "p_not_retrievable"}
 
 
+def test_counts_exclusion_reasons_exclude_merge_losers(tmp_path):
+    """README/manifest exclusion-reason counts use the matrix (non-loser) basis,
+    consistent with the tier/era/PDF counts, so the funnel reconciles
+    (screened = matrix included + excluded)."""
+    from rrl.output.runner import _counts
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    _seed(conn, "p_off", "review_needed", included=0, exclusion_reason="off_topic",
+          pdf_status=None, pdf_filename=None)
+    _seed(conn, "p_off_loser", "review_needed", included=0, exclusion_reason="off_topic",
+          pdf_status=None, pdf_filename=None)
+    conn.execute("INSERT INTO paper_merges (loser_id, winner_id, merged_at, merged_by) "
+                 "VALUES ('p_off_loser','p_off','now','manual')")
+    counts = _counts(conn)
+    # the merged-loser duplicate must NOT inflate the off_topic count
+    assert counts["exclusion_reasons"].get("off_topic") == 1
+
+
 def test_matrix_pdf_only_drops_not_retrievable_rows(tmp_path):
     """pdf_only=True restricts the workbook to papers with a downloaded PDF.
     not_retrievable rows are dropped; tier/merge/included filters still apply."""
