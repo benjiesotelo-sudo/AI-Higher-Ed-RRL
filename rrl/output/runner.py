@@ -184,7 +184,8 @@ def run_export(db: Path, *, session: requests.Session, pdf_root: Path, matrix_pa
                elsevier_api_key: str | None = None,
                retry_failed: bool = False) -> dict:
     from rrl.db import connect, init_schema
-    conn = connect(db); init_schema(conn)
+    conn = connect(db)
+    init_schema(conn)
 
     runtimes: dict[str, float] = {}
     t0 = time.monotonic()
