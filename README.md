@@ -6,7 +6,7 @@ A Python CLI that harvests, deduplicates, screens, and downloads academic papers
 
 A reproducible, auditable corpus you can read and cite. Two output tiers — `high_confidence` and `review_needed` — surface borderline papers for manual judgment rather than silently dropping them. Papers passing screening but with no retrievable full text are reported as `not_retrievable` (distinct from formal exclusion) so the candidate worklist for interlibrary-loan retrieval stays visible.
 
-> **Methodology version: v2 (2026-05-20).** This README and the live `output/` artefacts describe the post-pivot pipeline: four databases (OpenAlex, Scopus, ERIC, Semantic Scholar), no open-access restriction on inclusion, 14-stage screening, ScienceDirect TDM retrieval for Elsevier DOIs. The pre-pivot **v1** (three databases, open-access-only, 7-stage screening; commits up to git tag `v1-pre-rescrape`) is preserved for comparison: `AI_Higher_Ed_SR_Draft_v1.docx` and `rrl_matrix_v1.xlsx` are retained in the project's `OLD Files/` backup folder, and `PROGRESS.md` documents the pivot in the 2026-05-18 entry. See git history for the exact changes.
+> **Methodology version: v2 (2026-05-20).** This README and the live `output/` artefacts describe the post-pivot pipeline: four databases (OpenAlex, Scopus, ERIC, Semantic Scholar), no open-access restriction on inclusion, 14-stage screening, ScienceDirect TDM retrieval for Elsevier DOIs. The pre-pivot **v1** (three databases, open-access-only, 7-stage screening) is preserved for comparison in git history at tag `v1-pre-rescrape`; `PROGRESS.md` documents the pivot in the 2026-05-18 entry.
 
 ## Scope
 
@@ -311,8 +311,8 @@ flowchart TD
     LOG_F -.-> LOGS
 
     %% Sidecar packages
-    TESTS[tests/<br/>203 pytest cases<br/>mocked HTTP via responses lib]
-    SCRIPTS[scripts/<br/>build_manuscript_docx.py]
+    TESTS[tests/<br/>206 pytest cases<br/>mocked HTTP via responses lib]
+    SCRIPTS[scripts/<br/>build_manuscript_docx · probe_sciencedirect · probe_abstract_backfill]
 
     TESTS -. exercises every stage .-> CLI
 ```
