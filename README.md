@@ -331,6 +331,77 @@ mypy rrl             # types
 
 No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --since 2026-01-01` (small slice).
 
+## PRISMA 2020 flow
+
+The corpus funnel below renders from the same per-stage counts as the auto-generated run statistics at the foot of this README (canonical source: `Manuscript/prisma_data.md`). Full-text eligibility screening of the 2,648 retrieved reports is downstream manual work and is still in progress, so the flow ends at the matrix / retrieval stage rather than at final synthesis.
+
+**Conventional PRISMA box** — screening losses collapsed into a single node:
+
+```mermaid
+flowchart TD
+    DB["Records identified from databases<br/>n = 95,190<br/>──────<br/>OpenAlex 51,372 · Scopus 22,719<br/>ERIC 16,177 · Semantic Scholar 4,922"]
+    DEDUP["Records after duplicates removed<br/>n = 76,416"]
+    DUPS["Duplicate records removed<br/>n = 18,774<br/>(exact-key 17,620 + fuzzy-fingerprint 1,154)"]
+    SCREEN["Records screened<br/>n = 76,416"]
+    SCREEN_EX["Records excluded<br/>n = 71,584<br/>──────<br/>off_topic 45,995 · non_english 8,531<br/>no_empirical_signal 8,035 · no_abstract 6,104<br/>not_peer_reviewed 1,462 · non_empirical 525<br/>non_research_paper 282 · k12_only 200<br/>out_of_scope_subdomain 144 · language_mismatch 142<br/>retracted 127 · low_citation_old 22 · outreach_paper 15"]
+    SEEK["Reports sought for retrieval<br/>n = 4,832<br/>high_confidence 1,948 · review_needed 2,884"]
+    NOT_RET["Reports not retrieved<br/>n = 2,184<br/>(no PDF via OA / Unpaywall / CORE / ScienceDirect TDM)"]
+    ELIG["Reports assessed for eligibility<br/>n = 2,648<br/>(full-text eligibility screening in progress)"]
+
+    DB --> DEDUP
+    DEDUP -. duplicates .-> DUPS
+    DEDUP --> SCREEN
+    SCREEN -. excluded .-> SCREEN_EX
+    SCREEN --> SEEK
+    SEEK -. not retrieved .-> NOT_RET
+    SEEK --> ELIG
+```
+
+**Per-criterion drop-off cascade** — the same screening losses, gate by gate. Each excluded paper carries one canonical reason (the first gate to fire), so the spine shows the running count still under consideration and each dashed branch shows that gate's drop-off. Gates run in the exact order of `rrl/screen/rules.py` — the order that produced the per-reason counts — and the spine lands exactly on the 4,832 included papers:
+
+```mermaid
+flowchart TD
+    ID["Records identified — n = 95,190<br/>OpenAlex 51,372 · Scopus 22,719 · ERIC 16,177 · Semantic Scholar 4,922"]
+    DD["Records screened after de-duplication — n = 76,416<br/>(−18,774 duplicates: exact-key 17,620 + fuzzy-fingerprint 1,154)"]
+    ID --> DD --> F1
+
+    F1["1 · Publication date 2020–2026"] -. "wrong_date · 0" .-> XA
+    F1 -->|"76,416"| F2
+    F2["2 · English (source metadata)"] -. "non_english · 8,531" .-> XA
+    F2 -->|"67,885"| F3
+    F3["3 · Retracted"] -. "retracted · 127" .-> XA
+    F3 -->|"67,758"| F4
+    F4["4 · Language script (non-Latin)"] -. "language_mismatch · 142" .-> XA
+    F4 -->|"67,616"| F5
+    F5["5 · Non-research apparatus"] -. "non_research_paper · 282" .-> XA
+    F5 -->|"67,334"| F6
+    F6["6 · No abstract (unscreenable)"] -. "no_abstract · 6,104" .-> XA
+    F6 -->|"61,230"| F7
+    F7["7 · Out-of-scope subdomain"] -. "out_of_scope_subdomain · 144" .-> XA
+    F7 -->|"61,086"| F8
+    F8["8 · K-12 only"] -. "k12_only · 200" .-> XB
+    F8 -->|"60,886"| F9
+    F9["9 · Off-topic (AI × HE intersection)"] -. "off_topic · 45,995" .-> XB
+    F9 -->|"14,891"| F10
+    F10["10 · Not peer-reviewed"] -. "not_peer_reviewed · 1,462" .-> XB
+    F10 -->|"13,429"| F11
+    F11["11 · Non-empirical (review / editorial)"] -. "non_empirical · 525" .-> XB
+    F11 -->|"12,904"| F12
+    F12["12 · Outreach / service write-up"] -. "outreach_paper · 15" .-> XB
+    F12 -->|"12,889"| F13
+    F13["13 · No empirical signal"] -. "no_empirical_signal · 8,035" .-> XB
+    F13 -->|"4,854"| F14
+    F14["14 · Low-citation old (2020–2022)"] -. "low_citation_old · 22" .-> XB
+    F14 -->|"4,832"| INC
+
+    XA["Excluded at screening<br/>identification / language / format gates"]
+    XB["Excluded at screening<br/>topic / methodology gates<br/>(total screening losses: 71,584)"]
+
+    INC["Included in matrix — n = 4,832<br/>high_confidence 1,948 · review_needed 2,884"]
+    INC --> RET["Full text sought<br/>retrieved 2,648 · not_retrievable 2,184"]
+    RET --> ELIG["Full-text eligibility screening<br/>(in progress)"]
+```
+
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
 
