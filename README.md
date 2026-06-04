@@ -6,7 +6,7 @@ A Python CLI that harvests, deduplicates, screens, and downloads academic papers
 
 A reproducible, auditable corpus you can read and cite. Two output tiers — `high_confidence` and `review_needed` — surface borderline papers for manual judgment rather than silently dropping them. Papers passing screening but with no retrievable full text are reported as `not_retrievable` (distinct from formal exclusion) so the candidate worklist for interlibrary-loan retrieval stays visible.
 
-> **Methodology version: v2 (2026-05-20).** This README and the live `output/` artefacts describe the post-pivot pipeline: four databases (OpenAlex, Scopus, ERIC, Semantic Scholar), no open-access restriction on inclusion, 14-stage screening, ScienceDirect TDM retrieval for Elsevier DOIs. The pre-pivot **v1** (three databases, open-access-only, 7-stage screening) is preserved for comparison in git history at tag `v1-pre-rescrape`; `PROGRESS.md` documents the pivot in the 2026-05-18 entry.
+> **Methodology version: v2 (2026-05-20).** This README and the live `output/` artefacts describe the post-pivot pipeline: four databases (OpenAlex, Scopus, ERIC, Semantic Scholar), no open-access restriction on inclusion, 14-stage screening, ScienceDirect TDM retrieval for Elsevier DOIs. The pre-pivot **v1** (three databases, open-access-only, 7-stage screening) is preserved for comparison in git history at tag `v1-pre-rescrape`.
 
 ## Scope
 
@@ -312,14 +312,10 @@ flowchart TD
 
     %% Sidecar packages
     TESTS[tests/<br/>206 pytest cases<br/>mocked HTTP via responses lib]
-    SCRIPTS[scripts/<br/>build_manuscript_docx · probe_sciencedirect · probe_abstract_backfill]
+    SCRIPTS[scripts/<br/>probe_sciencedirect · probe_abstract_backfill]
 
     TESTS -. exercises every stage .-> CLI
 ```
-
-Full design specs:
-- `docs/superpowers/specs/2026-05-14-rrl-pipeline-design.md` — original v1 design (3-database, OA-only).
-- `docs/superpowers/specs/2026-05-18-rescrape-and-elsevier-design.md` — v2 rescrape + Elsevier integration (the present pipeline).
 
 ## Development
 

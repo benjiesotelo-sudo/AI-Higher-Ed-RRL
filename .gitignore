@@ -15,8 +15,12 @@ output/~$*.xlsx
 .DS_Store
 .Rhistory
 
-# Private manuscript work-in-progress
-# Use Manuscript/* (not Manuscript/) so the .gitkeep exception can re-include it;
-# excluding the directory itself stops git from descending into it at all.
-Manuscript/*
-!Manuscript/.gitkeep
+# Private manuscript work-in-progress — fully excluded (never shared publicly)
+Manuscript/
+
+# Internal dev artifacts — kept locally, not published.
+# This repo is public and meant to be cloned to reproduce harvesting/screening;
+# these expose internal process/planning rather than help reproduce the pipeline.
+PROGRESS.md
+docs/
+scripts/build_manuscript_docx.py
