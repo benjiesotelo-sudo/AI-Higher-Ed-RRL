@@ -329,7 +329,7 @@ No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --s
 
 ## PRISMA 2020 flow
 
-The corpus funnel below renders from the same per-stage counts as the auto-generated run statistics at the foot of this README (regenerated from `data/rrl.sqlite` on every `rrl export`). Two manual steps run downstream of retrieval and are still in progress: full-text eligibility screening of the 2,648 retrieved reports, then **MMAT** (Mixed Methods Appraisal Tool, v2018) quality appraisal, beginning with the high-confidence papers that have retrievable full text (**n = 1,198**: `quality_tier = high_confidence` intersected with a downloaded PDF). The flow therefore ends at the matrix / retrieval stage rather than at final synthesis.
+The corpus funnel below renders from the same per-stage counts as the auto-generated run statistics at the foot of this README (regenerated from `data/rrl.sqlite` on every `rrl export`). Two manual steps run downstream of retrieval and are still in progress: full-text eligibility screening of the 2,648 retrieved reports, then **MMAT** (Mixed Methods Appraisal Tool, v2018) quality appraisal. Appraisal and synthesis are **scoped to the high-confidence tier**: the **1,198** high-confidence papers with retrievable full text (`quality_tier = high_confidence` intersected with a downloaded PDF) are carried forward, while the 1,450 retrieved `review_needed` papers (a lower-confidence triage tier, demoted chiefly on the venue-recognition criterion — DOAJ / major-publisher listing) are not. The flow therefore ends at the matrix / retrieval stage rather than at final synthesis.
 
 **Conventional PRISMA box** — screening losses collapsed into a single node:
 
@@ -341,8 +341,10 @@ flowchart TD
     SCREEN["Records screened<br/>n = 76,416"]
     SCREEN_EX["Records excluded<br/>n = 71,584<br/>──────<br/>off_topic 45,995 · non_english 8,531<br/>no_empirical_signal 8,035 · no_abstract 6,104<br/>not_peer_reviewed 1,462 · non_empirical 525<br/>non_research_paper 282 · k12_only 200<br/>out_of_scope_subdomain 144 · language_mismatch 142<br/>retracted 127 · low_citation_old 22 · outreach_paper 15"]
     SEEK["Reports sought for retrieval<br/>n = 4,832<br/>high_confidence 1,948 · review_needed 2,884"]
-    NOT_RET["Reports not retrieved<br/>n = 2,184<br/>(no PDF via OA / Unpaywall / CORE / ScienceDirect TDM)"]
-    ELIG["Reports assessed for eligibility<br/>n = 2,648<br/>(full-text eligibility screening in progress)"]
+    NOT_RET["Reports not retrieved<br/>n = 2,184<br/>high_confidence 750 · review_needed 1,434<br/>(no PDF via OA / Unpaywall / CORE / ScienceDirect TDM)"]
+    RET["Reports retrieved (full text obtained)<br/>n = 2,648<br/>high_confidence 1,198 · review_needed 1,450"]
+    SCOPE_EX["Excluded from quality appraisal<br/>n = 1,450<br/>review_needed tier (lower-confidence triage)<br/>— review scoped to high_confidence"]
+    APPR["Studies included for appraisal and synthesis<br/>n = 1,198<br/>high_confidence with full text<br/>(full-text eligibility + MMAT appraisal in progress)"]
 
     DB --> DEDUP
     DEDUP -. duplicates .-> DUPS
@@ -350,7 +352,9 @@ flowchart TD
     SCREEN -. excluded .-> SCREEN_EX
     SCREEN --> SEEK
     SEEK -. not retrieved .-> NOT_RET
-    SEEK --> ELIG
+    SEEK --> RET
+    RET -. review_needed (out of scope) .-> SCOPE_EX
+    RET --> APPR
 ```
 
 **Per-criterion drop-off cascade** — the same screening losses, gate by gate. Each excluded paper carries one canonical reason (the first gate to fire), so the spine shows the running count still under consideration and each dashed branch shows that gate's drop-off. Gates run in the exact order of `rrl/screen/rules.py` — the order that produced the per-reason counts — and the spine lands exactly on the 4,832 included papers:
@@ -396,8 +400,19 @@ flowchart TD
     INC["Included in matrix — n = 4,832<br/>high_confidence 1,948 · review_needed 2,884"]
     INC --> RET["Full text sought<br/>retrieved 2,648 · not_retrievable 2,184"]
     RET --> ELIG["Full-text eligibility screening<br/>(in progress)"]
-    ELIG --> APP["MMAT quality appraisal (in progress)<br/>batch 1: high_confidence with full text · n = 1,198"]
+    ELIG -. review_needed (out of scope) .-> RNX["Excluded from appraisal<br/>review_needed · n = 1,450"]
+    ELIG --> APP["MMAT quality appraisal (in progress)<br/>high_confidence with full text · n = 1,198"]
 ```
+
+## Appraisal scope (carried forward)
+
+From retrieval onward the review is **scoped to the high-confidence tier**. Of the 4,832 included reports:
+
+- **1,198** — `high_confidence` with retrievable full text → carried forward to full-text eligibility and MMAT (v2018) quality appraisal (**the working set from here on**).
+- **750** — `high_confidence` but `not_retrievable` → interlibrary-loan worklist.
+- **2,884** — `review_needed` (1,450 retrieved · 1,434 not retrieved) → a lower-confidence triage tier, predominantly demoted on the venue-recognition criterion (DOAJ / major-publisher listing); **not carried to appraisal** under this scoping.
+
+The auto-generated run statistics below describe the full corpus pipeline (all 4,832 included reports); the **1,198** above is the appraisal working set.
 
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
