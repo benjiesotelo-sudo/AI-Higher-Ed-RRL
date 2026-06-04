@@ -24,3 +24,6 @@ Manuscript/
 PROGRESS.md
 docs/
 scripts/build_manuscript_docx.py
+
+# Local-only dustbin for backup / removed / superseded files
+OLD Files/
