@@ -329,7 +329,7 @@ No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --s
 
 ## PRISMA 2020 flow
 
-The corpus funnel below renders from the same per-stage counts as the auto-generated run statistics at the foot of this README (canonical source: `Manuscript/prisma_data.md`). Full-text eligibility screening of the 2,648 retrieved reports is downstream manual work and is still in progress, so the flow ends at the matrix / retrieval stage rather than at final synthesis.
+The corpus funnel below renders from the same per-stage counts as the auto-generated run statistics at the foot of this README (regenerated from `data/rrl.sqlite` on every `rrl export`). Two manual steps run downstream of retrieval and are still in progress: full-text eligibility screening of the 2,648 retrieved reports, then **MMAT** (Mixed Methods Appraisal Tool, v2018) quality appraisal, beginning with the high-confidence papers that have retrievable full text (**n = 1,198**: `quality_tier = high_confidence` intersected with a downloaded PDF). The flow therefore ends at the matrix / retrieval stage rather than at final synthesis.
 
 **Conventional PRISMA box** — screening losses collapsed into a single node:
 
@@ -396,6 +396,7 @@ flowchart TD
     INC["Included in matrix — n = 4,832<br/>high_confidence 1,948 · review_needed 2,884"]
     INC --> RET["Full text sought<br/>retrieved 2,648 · not_retrievable 2,184"]
     RET --> ELIG["Full-text eligibility screening<br/>(in progress)"]
+    ELIG --> APP["MMAT quality appraisal (in progress)<br/>batch 1: high_confidence with full text · n = 1,198"]
 ```
 
 <!-- BEGIN AUTO-GENERATED -->
