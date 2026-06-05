@@ -105,6 +105,55 @@ CREATE TABLE IF NOT EXISTS paper_merges (
   merged_at       TEXT NOT NULL,
   merged_by       TEXT NOT NULL
 );
+
+-- MMAT v2018 quality appraisal (additive; CREATE TABLE IF NOT EXISTS = no
+-- SCHEMA_VERSION bump needed). 'final' is a computed view in persist.py, never
+-- a stored coder. coder in {llm_pass_1,llm_pass_2,llm_tiebreaker,human_adjudication,human_validation}.
+CREATE TABLE IF NOT EXISTS mmat_classifications (
+  id              INTEGER PRIMARY KEY,
+  paper_id        TEXT NOT NULL REFERENCES papers(paper_id),
+  coder           TEXT NOT NULL,
+  mmat_category   TEXT NOT NULL,
+  mm_quant_family TEXT,
+  s1              TEXT,
+  s2              TEXT,
+  rationale       TEXT,
+  source_quote    TEXT,
+  confidence      REAL,
+  flagged         INTEGER DEFAULT 0,
+  prompt_version  TEXT NOT NULL,
+  model           TEXT NOT NULL,
+  engine          TEXT NOT NULL,
+  created_at      TEXT NOT NULL,
+  UNIQUE (paper_id, coder, prompt_version)
+);
+
+CREATE TABLE IF NOT EXISTS mmat_appraisals (
+  id                INTEGER PRIMARY KEY,
+  paper_id          TEXT NOT NULL REFERENCES papers(paper_id),
+  coder             TEXT NOT NULL,
+  mmat_category     TEXT NOT NULL,
+  criterion_id      TEXT NOT NULL,
+  rating            TEXT NOT NULL,
+  rationale         TEXT,
+  source_quote      TEXT,
+  quote_verified    INTEGER,
+  adjudication_note TEXT,
+  prompt_version    TEXT,
+  model             TEXT,
+  engine            TEXT,
+  created_at        TEXT NOT NULL,
+  UNIQUE (paper_id, coder, criterion_id, prompt_version)
+);
+CREATE INDEX IF NOT EXISTS idx_mmat_appr_paper ON mmat_appraisals(paper_id);
+CREATE INDEX IF NOT EXISTS idx_mmat_appr_crit  ON mmat_appraisals(criterion_id);
+
+CREATE TABLE IF NOT EXISTS mmat_dispositions (
+  paper_id     TEXT PRIMARY KEY REFERENCES papers(paper_id),
+  disposition  TEXT NOT NULL,
+  detail       TEXT,
+  created_at   TEXT NOT NULL
+);
 """
 
 
