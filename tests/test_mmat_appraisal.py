@@ -29,3 +29,61 @@ def test_mmat_appraisals_unique_constraint(tmp_path):
     import sqlite3
     with __import__("pytest").raises(sqlite3.IntegrityError):
         conn.execute(ins, row)  # same (paper_id, coder, criterion_id, prompt_version)
+
+
+import fitz  # PyMuPDF
+
+from rrl.appraise.pdftext import extract_text, looks_english, MIN_TEXT_CHARS
+
+
+def _make_pdf(path, text):
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_textbox(fitz.Rect(72, 72, 520, 760), text)
+    doc.save(str(path))
+    doc.close()
+
+
+_EN_PARA = (
+    "This study examines the use of artificial intelligence in higher education. "
+    "The research questions are clear and the data were collected from university "
+    "students who used these tools for their coursework during the term. "
+) * 4  # > 500 chars, stopword-rich English
+
+
+def test_looks_english_true_for_english():
+    assert looks_english("the study of the data in the university was clear") is True
+
+
+def test_looks_english_false_for_non_english():
+    assert looks_english("lorem ipsum dolor sit amet consectetur adipiscing") is False
+
+
+def test_extract_ok_for_english_pdf(tmp_path):
+    p = tmp_path / "doc.pdf"
+    _make_pdf(p, _EN_PARA)
+    res = extract_text(p)
+    assert res.disposition == "ok"
+    assert res.char_count >= MIN_TEXT_CHARS
+    assert "higher education" in res.text
+
+
+def test_extract_no_text_layer_for_missing_file(tmp_path):
+    res = extract_text(tmp_path / "nope.pdf")
+    assert res.disposition == "no_text_layer"
+    assert res.char_count == 0
+
+
+def test_extract_no_text_layer_for_tiny_text(tmp_path):
+    p = tmp_path / "scan.pdf"
+    _make_pdf(p, "Hi")  # far below MIN_TEXT_CHARS -> looks like a scan
+    res = extract_text(p)
+    assert res.disposition == "no_text_layer"
+
+
+def test_extract_non_english(tmp_path):
+    p = tmp_path / "es.pdf"
+    _make_pdf(p, ("lorem ipsum dolor sit amet consectetur adipiscing elit sed "
+                  "eiusmod tempor incididunt ut labore dolore magna aliqua ") * 6)
+    res = extract_text(p)
+    assert res.disposition == "non_english"
