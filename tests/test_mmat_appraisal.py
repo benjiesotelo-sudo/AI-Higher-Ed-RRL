@@ -135,3 +135,29 @@ def test_run_extract_records_dispositions_and_is_idempotent(tmp_path):
     counts2 = run_extract(conn, pdf_root=pdf_root)
     assert counts2 == {}
     assert conn.execute("SELECT COUNT(*) FROM mmat_dispositions").fetchone()[0] == 2
+
+
+from click.testing import CliRunner
+
+from rrl.cli import main
+
+
+def test_appraise_extract_and_status_cli(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "pdfs" / "2023").mkdir(parents=True)
+    _make_pdf(tmp_path / "pdfs" / "2023" / "good.pdf", _EN_PARA)
+
+    conn = connect(tmp_path / "data" / "rrl.sqlite")
+    init_schema(conn)
+    _insert_paper(conn, "good", pdf_filename="2023/good.pdf")
+    conn.close()
+
+    runner = CliRunner()
+    r1 = runner.invoke(main, ["--db", "data/rrl.sqlite", "appraise", "extract"])
+    assert r1.exit_code == 0, r1.output
+    assert "ok: 1" in r1.output
+
+    r2 = runner.invoke(main, ["--db", "data/rrl.sqlite", "appraise", "status"])
+    assert r2.exit_code == 0, r2.output
+    assert "ok: 1" in r2.output

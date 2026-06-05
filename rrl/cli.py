@@ -233,3 +233,45 @@ def status(ctx, paper):
     click.echo("search_runs:")
     for r in conn.execute("SELECT adapter, status, finished_at, records_new FROM search_runs ORDER BY started_at DESC").fetchall():
         click.echo(f"  {r['adapter']:<10} {r['status']:<7} {r['finished_at'] or '':<28} new={r['records_new']}")
+
+
+@main.group()
+@click.pass_context
+def appraise(ctx):
+    """MMAT v2018 quality appraisal (LLM-assisted; see docs/.../mmat-appraisal-design.md)."""
+
+
+@appraise.command(name="extract")
+@click.pass_context
+def appraise_extract(ctx):
+    """Phase 0: extract PDF text + record a disposition per in-scope paper."""
+    from rrl.db import connect, init_schema
+    from rrl.appraise.runner import run_extract
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    counts = run_extract(conn, pdf_root=Path("pdfs"))
+    if not counts:
+        click.echo("No new papers to process (all in-scope papers already dispositioned).")
+        return
+    for disp, n in sorted(counts.items()):
+        click.echo(f"{disp}: {n}")
+
+
+@appraise.command(name="status")
+@click.pass_context
+def appraise_status(ctx):
+    """Show MMAT disposition counts."""
+    from rrl.db import connect, init_schema
+    db = ctx.obj["db"]
+    if not db.exists():
+        click.echo(f"No database at {db}. Run `rrl appraise extract` first.")
+        return
+    conn = connect(db); init_schema(conn)
+    rows = conn.execute(
+        "SELECT disposition, COUNT(*) FROM mmat_dispositions "
+        "GROUP BY disposition ORDER BY 2 DESC"
+    ).fetchall()
+    if not rows:
+        click.echo("No dispositions yet. Run `rrl appraise extract`.")
+        return
+    for r in rows:
+        click.echo(f"{r[0]}: {r[1]}")
