@@ -16,6 +16,7 @@ _IN_SCOPE_SQL = """
 SELECT paper_id, pdf_filename FROM papers
 WHERE included = 1
   AND pdf_status = 'downloaded'
+  AND pdf_filename IS NOT NULL
   AND paper_id NOT IN (SELECT loser_id FROM paper_merges)
 ORDER BY paper_id
 """

@@ -161,3 +161,32 @@ def test_appraise_extract_and_status_cli(tmp_path, monkeypatch):
     r2 = runner.invoke(main, ["--db", "data/rrl.sqlite", "appraise", "status"])
     assert r2.exit_code == 0, r2.output
     assert "ok: 1" in r2.output
+
+
+def test_in_scope_excludes_null_pdf_filename(tmp_path):
+    # Defensive: a 'downloaded' row with a NULL pdf_filename (corrupt/hand-edited)
+    # must be excluded, not fed to extract_text (which would crash the run).
+    conn = connect(tmp_path / "rrl.sqlite")
+    init_schema(conn)
+    _insert_paper(conn, "ok1", pdf_filename="2023/ok1.pdf")
+    _insert_paper(conn, "nofile", pdf_status="downloaded", pdf_filename=None)
+    ids = {pid for pid, _ in in_scope_papers(conn)}
+    assert ids == {"ok1"}
+
+
+def test_appraise_extract_idempotent_cli(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir()
+    (tmp_path / "pdfs" / "2023").mkdir(parents=True)
+    _make_pdf(tmp_path / "pdfs" / "2023" / "good.pdf", _EN_PARA)
+    conn = connect(tmp_path / "data" / "rrl.sqlite")
+    init_schema(conn)
+    _insert_paper(conn, "good", pdf_filename="2023/good.pdf")
+    conn.close()
+
+    runner = CliRunner()
+    r1 = runner.invoke(main, ["--db", "data/rrl.sqlite", "appraise", "extract"])
+    assert r1.exit_code == 0, r1.output
+    r2 = runner.invoke(main, ["--db", "data/rrl.sqlite", "appraise", "extract"])
+    assert r2.exit_code == 0, r2.output
+    assert "No new papers" in r2.output
