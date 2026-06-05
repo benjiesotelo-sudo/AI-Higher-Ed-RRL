@@ -329,7 +329,7 @@ No live API calls in CI. For a live smoke test: `rrl harvest --only=openalex --s
 
 ## PRISMA 2020 flow
 
-The corpus funnel below renders from the same per-stage counts as the auto-generated run statistics at the foot of this README (regenerated from `data/rrl.sqlite` on every `rrl export`). Two manual steps run downstream of retrieval and are still in progress: full-text eligibility screening of the 2,648 retrieved reports, then **MMAT** (Mixed Methods Appraisal Tool, v2018) quality appraisal. Appraisal and synthesis are **scoped to the high-confidence tier**: the **1,198** high-confidence papers with retrievable full text (`quality_tier = high_confidence` intersected with a downloaded PDF) are carried forward, while the 1,450 retrieved `review_needed` papers (a lower-confidence triage tier, demoted chiefly on the venue-recognition criterion — DOAJ / major-publisher listing) are not. The flow therefore ends at the matrix / retrieval stage rather than at final synthesis.
+The corpus funnel below renders from the same per-stage counts as the auto-generated run statistics at the foot of this README (regenerated from `data/rrl.sqlite` on every `rrl export`). Two manual steps run downstream of retrieval and are still in progress: full-text eligibility screening of the 2,648 retrieved reports, then **MMAT** (Mixed Methods Appraisal Tool, v2018) quality appraisal applied to **all 2,648 reports with retrievable full text** (high_confidence 1,198 + review_needed 1,450). The `quality_tier` split is a **reported study characteristic** — venue-recognition confidence (chiefly DOAJ / major-publisher listing) — **not an appraisal gate**: no study is dropped from appraisal on its tier, and consistent with the MMAT user guide no study is excluded on methodological-quality grounds. Appraisal results are reported per criterion with sensitivity analyses (including by venue tier). The only included reports not appraised are the 2,184 `not_retrievable` ones, which lack full text. The flow therefore ends at the matrix / retrieval stage rather than at final synthesis.
 
 **Conventional PRISMA box** — screening losses collapsed into a single node:
 
@@ -343,8 +343,7 @@ flowchart TD
     SEEK["Reports sought for retrieval<br/>n = 4,832<br/>high_confidence 1,948 · review_needed 2,884"]
     NOT_RET["Reports not retrieved<br/>n = 2,184<br/>high_confidence 750 · review_needed 1,434<br/>(no PDF via OA / Unpaywall / CORE / ScienceDirect TDM)"]
     RET["Reports retrieved (full text obtained)<br/>n = 2,648<br/>high_confidence 1,198 · review_needed 1,450"]
-    SCOPE_EX["Excluded from quality appraisal<br/>n = 1,450<br/>review_needed tier (lower-confidence triage)<br/>— review scoped to high_confidence"]
-    APPR["Studies included for appraisal and synthesis<br/>n = 1,198<br/>high_confidence with full text<br/>(full-text eligibility + MMAT appraisal in progress)"]
+    APPR["Studies included for appraisal and synthesis<br/>n = 2,648<br/>all retrieved full-text reports<br/>(quality_tier reported, not used to exclude)<br/>(full-text eligibility + MMAT v2018 appraisal in progress)"]
 
     DB --> DEDUP
     DEDUP -. duplicates .-> DUPS
@@ -353,7 +352,6 @@ flowchart TD
     SCREEN --> SEEK
     SEEK -. not retrieved .-> NOT_RET
     SEEK --> RET
-    RET -. review_needed (out of scope) .-> SCOPE_EX
     RET --> APPR
 ```
 
@@ -400,19 +398,19 @@ flowchart TD
     INC["Included in matrix — n = 4,832<br/>high_confidence 1,948 · review_needed 2,884"]
     INC --> RET["Full text sought<br/>retrieved 2,648 · not_retrievable 2,184"]
     RET --> ELIG["Full-text eligibility screening<br/>(in progress)"]
-    ELIG -. review_needed (out of scope) .-> RNX["Excluded from appraisal<br/>review_needed · n = 1,450"]
-    ELIG --> APP["MMAT quality appraisal (in progress)<br/>high_confidence with full text · n = 1,198"]
+    ELIG --> APP["MMAT v2018 quality appraisal (in progress)<br/>all retrieved full-text reports · n = 2,648<br/>(quality_tier reported, not used to exclude)"]
 ```
 
-## Appraisal scope (carried forward)
+## Appraisal scope
 
-From retrieval onward the review is **scoped to the high-confidence tier**. Of the 4,832 included reports:
+From retrieval onward, **MMAT (v2018) quality appraisal is applied to every included report with retrievable full text — n = 2,648.** Of the 4,832 included reports:
 
-- **1,198** — `high_confidence` with retrievable full text → carried forward to full-text eligibility and MMAT (v2018) quality appraisal (**the working set from here on**).
-- **750** — `high_confidence` but `not_retrievable` → interlibrary-loan worklist.
-- **2,884** — `review_needed` (1,450 retrieved · 1,434 not retrieved) → a lower-confidence triage tier, predominantly demoted on the venue-recognition criterion (DOAJ / major-publisher listing); **not carried to appraisal** under this scoping.
+- **2,648** — included reports with retrievable full text → carried forward to full-text eligibility and MMAT appraisal (high_confidence 1,198 + review_needed 1,450). **This is the appraisal working set.**
+- **2,184** — `not_retrievable` (no PDF via OA / Unpaywall / CORE / ScienceDirect TDM; high_confidence 750 + review_needed 1,434) → interlibrary-loan worklist; cannot be appraised without full text.
 
-The auto-generated run statistics below describe the full corpus pipeline (all 4,832 included reports); the **1,198** above is the appraisal working set.
+The `quality_tier` (high_confidence / review_needed) is a **reported characteristic** capturing venue-recognition confidence (chiefly DOAJ / major-publisher listing), **not a filter on appraisal**. It is reported alongside the MMAT results and used as a **sensitivity dimension** (do findings hold across venue tiers?), rather than to exclude studies. Consistent with the MMAT user guide, **no study is excluded on methodological-quality grounds**: quality is described and its influence explored via sensitivity analysis.
+
+The auto-generated run statistics below describe the full corpus pipeline (all 4,832 included reports); the **2,648** above is the appraisal working set.
 
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
