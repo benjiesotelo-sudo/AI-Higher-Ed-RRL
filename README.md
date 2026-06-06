@@ -412,6 +412,18 @@ The `quality_tier` (high_confidence / review_needed) is a **reported characteris
 
 The auto-generated run statistics below describe the full corpus pipeline (all 4,832 included reports); the **2,648** above is the appraisal working set.
 
+## Appraisal methodology
+
+Quality appraisal uses the **Mixed Methods Appraisal Tool (MMAT), version 2018** (Hong et al., 2018) — a single instrument that accommodates the qualitative, quantitative, and mixed-methods designs present in this corpus. It is applied to all 2,648 retrieved full-text reports (see **Appraisal scope** above); appraisal is in progress.
+
+**Instrument.** Each study first passes two screening questions (a clear research question; collected data adequate to address it). It is then assigned a design category — *qualitative*, *quantitative randomized controlled trial*, *quantitative non-randomized*, *quantitative descriptive*, or *mixed methods* — and rated against that category's five criteria. Every criterion is scored **Yes / No / Can't tell**. Following the MMAT user guide, **no overall quality score is computed and no study is excluded on quality grounds**: ratings are reported per criterion and quality is explored through sensitivity analysis (including by venue tier — see **Appraisal scope**).
+
+**Coding procedure.** Appraisal is **LLM-assisted**. Each study is independently coded in two passes and the per-criterion ratings are compared; disagreements go to a third independent adjudication pass, and any residual disagreements and `Can't tell` ratings are resolved by the human reviewer (lead author). The 14-gate screening cascade above remains fully deterministic — appraisal is the first and only LLM-assisted phase, isolated from the rule-based pipeline.
+
+**Reliability and validation.** Inter-pass agreement is reported per criterion using **Cohen's κ**, alongside **PABAK** (prevalence-adjusted, bias-adjusted κ) to guard against the kappa paradox on skewed criteria. Because agreement between automated passes measures *consistency* rather than *correctness*, a randomly drawn validation subset is independently appraised by a human coder blind to the automated ratings, and **human-vs-LLM agreement** is reported as the validity check.
+
+> Hong, Q. N., Pluye, P., Fàbregues, S., Bartlett, G., Boardman, F., Cargo, M., Dagenais, P., Gagnon, M.-P., Griffiths, F., Nicolau, B., O'Cathain, A., Rousseau, M.-C., & Vedel, I. (2018). *Mixed Methods Appraisal Tool (MMAT), version 2018.* Registration of Copyright (#1148552), Canadian Intellectual Property Office, Industry Canada.
+
 <!-- BEGIN AUTO-GENERATED -->
 ## Run statistics
 
