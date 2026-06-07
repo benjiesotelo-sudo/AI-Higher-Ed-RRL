@@ -444,3 +444,12 @@ def test_cli_classify_emit_import_roundtrip(tmp_path, monkeypatch):
     conn = connect(tmp_path / "data" / "rrl.sqlite")
     assert conn.execute("SELECT mmat_category FROM mmat_classifications WHERE paper_id='g'"
                         ).fetchone()["mmat_category"] == "qualitative"
+
+
+import subprocess
+
+
+def test_work_files_are_gitignored():
+    out = subprocess.run(["git", "check-ignore", "sample.work.jsonl", "sample.answers.jsonl",
+                          "sample.rejects.jsonl"], capture_output=True, text=True)
+    assert "work.jsonl" in out.stdout and "answers.jsonl" in out.stdout
