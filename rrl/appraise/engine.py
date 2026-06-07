@@ -49,7 +49,13 @@ def quote_present(quote: str, text: str) -> bool:
     if q in t:
         return True
     qw = q.split()
-    return len(qw) >= 4 and _ordered_subsequence(qw, t.split())
+    tw = t.split()
+    if len(qw) >= 4 and _ordered_subsequence(qw, tw):
+        return True
+    # faithful reconstruction: nearly all of the quote's distinct words are in
+    # the source (catches reordering/elision; a fabrication has low coverage).
+    qset = set(qw)
+    return len(qset) >= 6 and len(qset & set(tw)) / len(qset) >= 0.9
 
 
 CRITERIA = {

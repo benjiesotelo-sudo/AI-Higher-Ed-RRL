@@ -273,6 +273,14 @@ def test_quote_present_tolerates_dropped_citation_and_minor_elision():
     assert quote_present("students avoided all digital tools entirely", text) is False
 
 
+def test_quote_present_accepts_high_word_coverage_reconstruction():
+    text = "The study used a survey design with a small convenience sample of teachers in three schools."
+    # faithful reconstruction: same words, reordered/elided (not a clean substring/subsequence)
+    assert quote_present("a small convenience sample of teachers used a survey design", text) is True
+    # fabrication: words mostly absent from the source
+    assert quote_present("randomized controlled trial double blind placebo allocation concealment masking", text) is False
+
+
 import json
 
 from rrl.appraise.engine import build_classify_work
