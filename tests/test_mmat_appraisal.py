@@ -481,3 +481,9 @@ def test_work_lines_carry_rendered_prompt(tmp_path):
     build_classify_work(conn, 1, "classify-v1", pdf_root, out)
     line = json.loads(out.read_text().splitlines()[0])
     assert "prompt" in line and "S1" in line["prompt"] and "higher education" in line["prompt"]
+
+
+def test_harness_runbook_exists_and_describes_loop():
+    from rrl.appraise.prompts import load_template
+    rb = load_template("harness_runbook.md")
+    assert "work.jsonl" in rb and "answers.jsonl" in rb and "work_id" in rb
