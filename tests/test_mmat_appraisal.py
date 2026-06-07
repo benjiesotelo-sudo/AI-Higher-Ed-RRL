@@ -423,3 +423,24 @@ def test_assign_samples_deterministic_and_disjoint(tmp_path):
     calib = assign_samples(conn, role="calibration", n=5, seed=42)
     assert set(pilot).isdisjoint(calib)
     assert assign_samples(conn, role="pilot", n=5, seed=42) == pilot
+
+
+def test_cli_classify_emit_import_roundtrip(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(); (tmp_path / "pdfs" / "2023").mkdir(parents=True)
+    _make_pdf(tmp_path / "pdfs" / "2023" / "g.pdf", _EN_PARA)
+    conn = connect(tmp_path / "data" / "rrl.sqlite"); init_schema(conn)
+    _insert_paper(conn, "g", pdf_filename="2023/g.pdf"); set_disposition(conn, "g", "ok"); conn.close()
+    r = CliRunner().invoke(main, ["--db", "data/rrl.sqlite", "appraise", "classify",
+                                  "--emit", "c.work.jsonl", "--pass", "1"])
+    assert r.exit_code == 0, r.output
+    wl = json.loads((tmp_path / "c.work.jsonl").read_text().splitlines()[0])
+    (tmp_path / "c.answers.jsonl").write_text(json.dumps({"work_id": wl["work_id"],
+        "bucket": "qualitative", "s1": "yes", "s2": "yes", "mm_quant_family": None,
+        "rationale": "r", "source_quote": "higher education", "confidence": 0.9}) + "\n")
+    r2 = CliRunner().invoke(main, ["--db", "data/rrl.sqlite", "appraise", "classify",
+                                   "--import", "c.answers.jsonl", "--work", "c.work.jsonl"])
+    assert r2.exit_code == 0, r2.output
+    conn = connect(tmp_path / "data" / "rrl.sqlite")
+    assert conn.execute("SELECT mmat_category FROM mmat_classifications WHERE paper_id='g'"
+                        ).fetchone()["mmat_category"] == "qualitative"

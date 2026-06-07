@@ -256,6 +256,56 @@ def appraise_extract(ctx):
         click.echo(f"{disp}: {n}")
 
 
+@appraise.command(name="classify")
+@click.option("--emit", "emit_path", type=click.Path())
+@click.option("--import", "import_path", type=click.Path(exists=True))
+@click.option("--work", "work_path", type=click.Path(exists=True),
+              help="matching *.work.jsonl (required with --import)")
+@click.option("--pass", "pass_n", type=int, default=1)
+@click.option("--prompt-version", default="classify-v1")
+@click.pass_context
+def appraise_classify(ctx, emit_path, import_path, work_path, pass_n, prompt_version):
+    """Phase 1: classify (emit work file / import answers)."""
+    from rrl.db import connect, init_schema
+    from rrl.appraise.engine import build_classify_work
+    from rrl.appraise.persist import import_classify_answers
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    if emit_path:
+        n = build_classify_work(conn, pass_n, prompt_version, Path("pdfs"), Path(emit_path))
+        click.echo(f"emitted {n} classify work items -> {emit_path}")
+    elif import_path:
+        if not work_path:
+            raise click.UsageError("--import requires --work <the matching *.work.jsonl>")
+        c = import_classify_answers(conn, Path(work_path), Path(import_path),
+                                    model="harness", engine="harness")
+        click.echo(str(c))
+
+
+@appraise.command(name="rate")
+@click.option("--emit", "emit_path", type=click.Path())
+@click.option("--import", "import_path", type=click.Path(exists=True))
+@click.option("--work", "work_path", type=click.Path(exists=True),
+              help="matching *.work.jsonl (required with --import)")
+@click.option("--pass", "pass_n", type=int, default=1)
+@click.option("--prompt-version", default="rate-v1")
+@click.pass_context
+def appraise_rate(ctx, emit_path, import_path, work_path, pass_n, prompt_version):
+    """Phase 2: rate (emit work file / import answers)."""
+    from rrl.db import connect, init_schema
+    from rrl.appraise.engine import build_rate_work
+    from rrl.appraise.persist import import_rate_answers
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    if emit_path:
+        n = build_rate_work(conn, pass_n, prompt_version, Path("pdfs"), Path(emit_path))
+        click.echo(f"emitted {n} rate work items -> {emit_path}")
+    elif import_path:
+        if not work_path:
+            raise click.UsageError("--import requires --work <the matching *.work.jsonl>")
+        c = import_rate_answers(conn, Path(work_path), Path(import_path),
+                                model="harness", engine="harness")
+        click.echo(str(c))
+
+
 @appraise.command(name="status")
 @click.pass_context
 def appraise_status(ctx):
