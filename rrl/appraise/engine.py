@@ -8,6 +8,7 @@ import sqlite3
 from pathlib import Path
 
 from rrl.appraise.pdftext import extract_text
+from rrl.appraise.prompts import render_classify, render_rate
 
 
 def work_id(paper_id: str, task: str, pass_n: int, prompt_version: str) -> str:
@@ -63,6 +64,7 @@ def build_classify_work(conn: sqlite3.Connection, pass_n: int, prompt_version: s
                 "work_id": work_id(r["paper_id"], "classify", pass_n, prompt_version),
                 "paper_id": r["paper_id"], "task": "classify", "pass": pass_n,
                 "prompt_version": prompt_version, "text": res.text,
+                "prompt": render_classify(res.text, pass_n),
                 "schema": _CLASSIFY_SCHEMA}) + "\n")
             n += 1
     return n
@@ -105,6 +107,7 @@ def build_rate_work(conn: sqlite3.Connection, pass_n: int, prompt_version: str,
                 "paper_id": r["paper_id"], "task": "rate", "pass": pass_n,
                 "prompt_version": prompt_version, "mmat_category": r["mmat_category"],
                 "mm_quant_family": r["mm_quant_family"], "criteria": crits,
+                "prompt": render_rate(r["mmat_category"], crits, res.text, pass_n),
                 "text": res.text}) + "\n")
             n += 1
     return n

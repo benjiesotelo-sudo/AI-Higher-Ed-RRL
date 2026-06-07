@@ -470,3 +470,14 @@ def test_render_rate_carries_criteria_and_gotchas():
     assert "PRO" in p  # the 2.4 patient-reported-outcome gotcha
     m = render_rate("mixed_methods", ["5.4"], "PAPER", pass_n=2)
     assert "no divergence" in m.lower()
+
+
+def test_work_lines_carry_rendered_prompt(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    pdf_root = tmp_path / "pdfs"; (pdf_root / "2023").mkdir(parents=True)
+    _make_pdf(pdf_root / "2023" / "g.pdf", _EN_PARA)
+    _insert_paper(conn, "g", pdf_filename="2023/g.pdf"); set_disposition(conn, "g", "ok")
+    out = tmp_path / "c.work.jsonl"
+    build_classify_work(conn, 1, "classify-v1", pdf_root, out)
+    line = json.loads(out.read_text().splitlines()[0])
+    assert "prompt" in line and "S1" in line["prompt"] and "higher education" in line["prompt"]
