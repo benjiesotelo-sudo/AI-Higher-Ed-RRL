@@ -453,3 +453,20 @@ def test_work_files_are_gitignored():
     out = subprocess.run(["git", "check-ignore", "sample.work.jsonl", "sample.answers.jsonl",
                           "sample.rejects.jsonl"], capture_output=True, text=True)
     assert "work.jsonl" in out.stdout and "answers.jsonl" in out.stdout
+
+
+from rrl.appraise.prompts import render_classify, render_rate
+
+
+def test_render_classify_includes_screening_and_buckets():
+    p = render_classify("SOME PAPER TEXT", pass_n=1)
+    assert "S1" in p and "S2" in p and "mixed_methods" in p and "SOME PAPER TEXT" in p
+    assert "verbatim" in p.lower()
+
+
+def test_render_rate_carries_criteria_and_gotchas():
+    p = render_rate("rct", ["2.1", "2.4"], "PAPER", pass_n=1)
+    assert "2.1" in p and "2.4" in p and "PAPER" in p
+    assert "PRO" in p  # the 2.4 patient-reported-outcome gotcha
+    m = render_rate("mixed_methods", ["5.4"], "PAPER", pass_n=2)
+    assert "no divergence" in m.lower()
