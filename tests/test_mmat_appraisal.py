@@ -284,3 +284,53 @@ def test_build_classify_work_selects_ok_papers_and_embeds_workid(tmp_path):
     assert line["paper_id"] == "good" and line["task"] == "classify"
     assert line["work_id"] == work_id("good", "classify", 1, "classify-v1")
     assert "higher education" in line["text"] and "schema" in line
+
+
+from rrl.appraise.persist import import_classify_answers
+
+
+def _classify_round(tmp_path, conn, bucket, s1="yes", s2="yes"):
+    pdf_root = tmp_path / "pdfs"; (pdf_root / "2023").mkdir(parents=True, exist_ok=True)
+    _make_pdf(pdf_root / "2023" / "g.pdf", _EN_PARA)
+    _insert_paper(conn, "g", pdf_filename="2023/g.pdf"); set_disposition(conn, "g", "ok")
+    work = tmp_path / "c.work.jsonl"
+    build_classify_work(conn, 1, "classify-v1", pdf_root, work)
+    wl = json.loads(work.read_text().splitlines()[0])
+    ans = tmp_path / "c.answers.jsonl"
+    ans.write_text(json.dumps({"work_id": wl["work_id"], "bucket": bucket,
+        "s1": s1, "s2": s2, "mm_quant_family": None, "rationale": "r",
+        "source_quote": "higher education", "confidence": 0.9}) + "\n")
+    return import_classify_answers(conn, work, ans, model="m", engine="harness")
+
+
+def test_import_classify_persists_and_sets_quote_present(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    _classify_round(tmp_path, conn, "qualitative")
+    row = conn.execute("SELECT mmat_category, coder, flagged FROM mmat_classifications "
+                       "WHERE paper_id='g'").fetchone()
+    assert row["mmat_category"] == "qualitative" and row["coder"] == "llm_pass_1"
+    assert row["flagged"] == 0
+
+
+def test_import_classify_s1_trigger_routes_not_assessable(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    _classify_round(tmp_path, conn, "qualitative", s1="no")
+    disp = conn.execute("SELECT disposition FROM mmat_dispositions WHERE paper_id='g'").fetchone()
+    assert disp["disposition"] == "not_assessable"
+
+
+def test_import_classify_reimport_replaces_not_raises(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    pdf_root = tmp_path / "pdfs"; (pdf_root / "2023").mkdir(parents=True)
+    _make_pdf(pdf_root / "2023" / "g.pdf", _EN_PARA)
+    _insert_paper(conn, "g", pdf_filename="2023/g.pdf"); set_disposition(conn, "g", "ok")
+    work = tmp_path / "c.work.jsonl"; build_classify_work(conn, 1, "classify-v1", pdf_root, work)
+    wl = json.loads(work.read_text().splitlines()[0])
+    ans = tmp_path / "c.answers.jsonl"
+    ans.write_text(json.dumps({"work_id": wl["work_id"], "bucket": "qualitative", "s1": "yes",
+        "s2": "yes", "mm_quant_family": None, "rationale": "r",
+        "source_quote": "higher education", "confidence": 0.9}) + "\n")
+    import_classify_answers(conn, work, ans, "m", "harness")
+    import_classify_answers(conn, work, ans, "m", "harness")   # same key, second import
+    n = conn.execute("SELECT COUNT(*) FROM mmat_classifications WHERE paper_id='g'").fetchone()[0]
+    assert n == 1
