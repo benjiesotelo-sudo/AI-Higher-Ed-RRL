@@ -2,6 +2,7 @@
 from __future__ import annotations
 
 import json
+import random
 import sqlite3
 from datetime import datetime, timezone
 from pathlib import Path
@@ -146,3 +147,31 @@ def import_rate_answers(conn, work_path, answers_path, model, engine) -> dict:
         counts["persisted"] += 1
         _log(conn, batch, wid, pid, "persisted", "")
     return counts
+
+
+def status_counts(conn: sqlite3.Connection) -> dict:
+    """Per-phase progress: disposition counts, import-log outcomes, reconciliation."""
+    disp = {r[0]: r[1] for r in conn.execute(
+        "SELECT disposition, COUNT(*) FROM mmat_dispositions GROUP BY disposition").fetchall()}
+    log = {r[0]: r[1] for r in conn.execute(
+        "SELECT outcome, COUNT(*) FROM mmat_import_log GROUP BY outcome").fetchall()}
+    return {"dispositions": disp, "import_log": log,
+            "reconciliation": reconcile_dispositions(conn)}
+
+
+def assign_samples(conn: sqlite3.Connection, role: str, n: int, seed: int) -> list[str]:
+    """Seeded, append-only sample membership; roles are mutually exclusive."""
+    existing = [r[0] for r in conn.execute(
+        "SELECT paper_id FROM mmat_samples WHERE role=? ORDER BY paper_id", (role,)).fetchall()]
+    if existing:
+        return existing
+    taken = {r[0] for r in conn.execute("SELECT paper_id FROM mmat_samples").fetchall()}
+    pool = [r[0] for r in conn.execute(
+        f"SELECT paper_id FROM mmat_dispositions WHERE disposition='ok' "
+        f"AND paper_id IN ({_IN_SCOPE}) ORDER BY paper_id").fetchall() if r[0] not in taken]
+    random.Random(seed).shuffle(pool)
+    chosen = sorted(pool[:n])
+    for pid in chosen:
+        conn.execute("INSERT INTO mmat_samples (paper_id,role,stratum,rng_seed,assigned_at) "
+                     "VALUES (?,?,?,?,?)", (pid, role, None, seed, _now()))
+    return chosen

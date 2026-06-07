@@ -396,3 +396,30 @@ def test_import_rate_incomplete_set_rejects_whole_paper(tmp_path):
                    "rationale": "r", "source_quote": "higher education"}) + "\n")  # only 1 of 5
     import_rate_answers(conn, work, ans, model="m", engine="harness")
     assert conn.execute("SELECT COUNT(*) FROM mmat_appraisals WHERE paper_id='g'").fetchone()[0] == 0
+
+
+from rrl.appraise.persist import status_counts, assign_samples
+
+
+def test_status_counts_reports_dispositions_and_log(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    conn.execute("INSERT INTO papers (paper_id,title,authors_json,year,included,pdf_status,"
+                 "pdf_filename,first_seen_at,last_updated_at) VALUES "
+                 "('g','T','[]',2023,1,'downloaded','2023/g.pdf','now','now')")
+    set_disposition(conn, "g", "appraised")
+    s = status_counts(conn)
+    assert s["dispositions"]["appraised"] == 1 and s["reconciliation"]["balanced"] is True
+
+
+def test_assign_samples_deterministic_and_disjoint(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    for i in range(20):
+        pid = f"p{i:02d}"
+        conn.execute("INSERT INTO papers (paper_id,title,authors_json,year,included,pdf_status,"
+                     "pdf_filename,first_seen_at,last_updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                     (pid, "T", "[]", 2023, 1, "downloaded", f"2023/{pid}.pdf", "now", "now"))
+        set_disposition(conn, pid, "ok")
+    pilot = assign_samples(conn, role="pilot", n=5, seed=42)
+    calib = assign_samples(conn, role="calibration", n=5, seed=42)
+    assert set(pilot).isdisjoint(calib)
+    assert assign_samples(conn, role="pilot", n=5, seed=42) == pilot
