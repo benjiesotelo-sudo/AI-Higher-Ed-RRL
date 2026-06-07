@@ -87,3 +87,62 @@ def import_classify_answers(conn, work_path, answers_path, model, engine) -> dic
         counts["flagged" if flagged else "persisted"] += 1
         _log(conn, batch, a["work_id"], pid, "flagged" if flagged else "persisted", "")
     return counts
+
+
+def _compute_5_5(components: dict) -> str:
+    """MMAT 5.5 = weakest component: No if any applicable component is No;
+    Can't-tell if any is cant_tell and none No; else Yes."""
+    vals = list(components.values())
+    if "no" in vals:
+        return "no"
+    if "cant_tell" in vals:
+        return "cant_tell"
+    return "yes"
+
+
+def import_rate_answers(conn, work_path, answers_path, model, engine) -> dict:
+    """Group answers by paper, require a complete criterion set, compute 5.5,
+    UPSERT in one per-paper transaction, and roll the paper up to 'appraised'."""
+    work = {json.loads(l)["work_id"]: json.loads(l)
+            for l in Path(work_path).read_text().splitlines() if l.strip()}
+    batch = Path(answers_path).name
+    by_wid: dict = {}
+    for line in Path(answers_path).read_text().splitlines():
+        if line.strip():
+            a = json.loads(line)
+            by_wid.setdefault(a.get("work_id"), []).append(a)
+    counts = {"persisted": 0, "flagged": 0, "rejected": 0}
+    for wid, answers in by_wid.items():
+        w = work.get(wid)
+        if w is None:
+            counts["rejected"] += len(answers)
+            _log(conn, batch, wid, None, "rejected", "unknown work_id")
+            continue
+        rated = {a["criterion_id"]: a["rating"] for a in answers}
+        if not set(w["criteria"]) <= set(rated) or any(v not in RATINGS for v in rated.values()):
+            counts["rejected"] += len(answers)
+            _log(conn, batch, wid, w["paper_id"], "rejected", "incomplete or bad rating")
+            continue
+        if w["mmat_category"] == "mixed_methods":
+            components = {c: rated[c] for c in CRITERIA["qualitative"] + CRITERIA[w["mm_quant_family"]]}
+            rated["5.5"] = _compute_5_5(components)
+        coder, pv, pid = f"llm_pass_{w['pass']}", w["prompt_version"], w["paper_id"]
+        ans_by_cid = {a["criterion_id"]: a for a in answers}
+        conn.execute("BEGIN")
+        for cid, rating in rated.items():
+            a = ans_by_cid.get(cid, {"source_quote": "", "rationale": "computed (5.5)"})
+            qp = 1 if quote_present(a.get("source_quote", ""), w["text"]) else 0
+            conn.execute(
+                "INSERT INTO mmat_appraisals (paper_id,coder,mmat_category,criterion_id,rating,"
+                "rationale,source_quote,quote_verified,prompt_version,model,engine,created_at) "
+                "VALUES (?,?,?,?,?,?,?,?,?,?,?,?) "
+                "ON CONFLICT(paper_id,coder,criterion_id,prompt_version) DO UPDATE SET "
+                "rating=excluded.rating, rationale=excluded.rationale, source_quote=excluded.source_quote, "
+                "quote_verified=excluded.quote_verified, model=excluded.model, created_at=excluded.created_at",
+                (pid, coder, w["mmat_category"], cid, rating, a.get("rationale"),
+                 a.get("source_quote"), qp, pv, model, engine, _now()))
+        conn.execute("COMMIT")
+        set_disposition(conn, pid, "appraised", f"{w['mmat_category']} ({coder})")
+        counts["persisted"] += 1
+        _log(conn, batch, wid, pid, "persisted", "")
+    return counts

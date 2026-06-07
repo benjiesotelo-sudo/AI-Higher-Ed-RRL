@@ -352,3 +352,47 @@ def test_build_rate_work_emits_category_criteria_and_skips_not_assessable(tmp_pa
     line = json.loads(out.read_text().splitlines()[0])
     assert line["task"] == "rate" and line["mmat_category"] == "qualitative"
     assert line["criteria"] == CRITERIA["qualitative"]
+
+
+from rrl.appraise.persist import import_rate_answers
+
+
+def _rate_round(tmp_path, conn, category, ratings):
+    pdf_root = tmp_path / "pdfs"; (pdf_root / "2023").mkdir(parents=True, exist_ok=True)
+    _make_pdf(pdf_root / "2023" / "g.pdf", _EN_PARA)
+    _insert_paper(conn, "g", pdf_filename="2023/g.pdf"); set_disposition(conn, "g", "ok")
+    conn.execute("INSERT INTO mmat_classifications (paper_id,coder,mmat_category,prompt_version,"
+                 "model,engine,created_at) VALUES ('g','llm_pass_1',?,'classify-v1','m','h','now')",
+                 (category,))
+    work = tmp_path / "r.work.jsonl"; build_rate_work(conn, 1, "rate-v1", pdf_root, work)
+    wl = json.loads(work.read_text().splitlines()[0])
+    lines = [json.dumps({"work_id": wl["work_id"], "criterion_id": cid,
+             "rating": ratings.get(cid, "yes"), "rationale": "r",
+             "source_quote": "higher education", "confidence": 0.9}) for cid in wl["criteria"]]
+    ans = tmp_path / "r.answers.jsonl"; ans.write_text("\n".join(lines) + "\n")
+    return import_rate_answers(conn, work, ans, model="m", engine="harness")
+
+
+def test_import_rate_persists_full_set_and_marks_appraised(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    _rate_round(tmp_path, conn, "qualitative", {})
+    n = conn.execute("SELECT COUNT(*) FROM mmat_appraisals WHERE paper_id='g'").fetchone()[0]
+    assert n == 5
+    disp = conn.execute("SELECT disposition FROM mmat_dispositions WHERE paper_id='g'").fetchone()
+    assert disp["disposition"] == "appraised"
+
+
+def test_import_rate_incomplete_set_rejects_whole_paper(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    pdf_root = tmp_path / "pdfs"; (pdf_root / "2023").mkdir(parents=True)
+    _make_pdf(pdf_root / "2023" / "g.pdf", _EN_PARA)
+    _insert_paper(conn, "g", pdf_filename="2023/g.pdf"); set_disposition(conn, "g", "ok")
+    conn.execute("INSERT INTO mmat_classifications (paper_id,coder,mmat_category,prompt_version,"
+                 "model,engine,created_at) VALUES ('g','llm_pass_1','qualitative','classify-v1','m','h','now')")
+    work = tmp_path / "r.work.jsonl"; build_rate_work(conn, 1, "rate-v1", pdf_root, work)
+    wl = json.loads(work.read_text().splitlines()[0])
+    ans = tmp_path / "r.answers.jsonl"
+    ans.write_text(json.dumps({"work_id": wl["work_id"], "criterion_id": "1.1", "rating": "yes",
+                   "rationale": "r", "source_quote": "higher education"}) + "\n")  # only 1 of 5
+    import_rate_answers(conn, work, ans, model="m", engine="harness")
+    assert conn.execute("SELECT COUNT(*) FROM mmat_appraisals WHERE paper_id='g'").fetchone()[0] == 0
