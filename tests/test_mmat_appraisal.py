@@ -248,3 +248,18 @@ def test_reconcile_dispositions_sums_to_inscope(tmp_path):
     r = reconcile_dispositions(conn)
     assert r["balanced"] is True
     assert r["in_scope"] == 3 and r["dispositioned"] == 3
+
+
+from rrl.appraise.engine import work_id, normalize_text, quote_present
+
+
+def test_work_id_is_deterministic():
+    a = work_id("p1", "classify", 1, "classify-v1")
+    assert a == work_id("p1", "classify", 1, "classify-v1")
+    assert a != work_id("p1", "classify", 2, "classify-v1")
+
+
+def test_quote_present_handles_linewrap_and_softhyphen():
+    text = "the educa-\ntion of stu­dents in higher   education"
+    assert quote_present("education of students", text) is True
+    assert quote_present("not in the text at all", text) is False
