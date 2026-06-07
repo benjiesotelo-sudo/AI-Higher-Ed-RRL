@@ -51,11 +51,21 @@ ORDER BY p.paper_id
 """
 
 
+def _restrict(conn, rows, role):
+    """Optionally keep only rows whose paper_id is in the given sample role."""
+    if role is None:
+        return rows
+    allow = {r[0] for r in conn.execute(
+        "SELECT paper_id FROM mmat_samples WHERE role=?", (role,)).fetchall()}
+    return [r for r in rows if r["paper_id"] in allow]
+
+
 def build_classify_work(conn: sqlite3.Connection, pass_n: int, prompt_version: str,
-                        pdf_root: Path, out_path: Path) -> int:
+                        pdf_root: Path, out_path: Path, restrict_role: str | None = None) -> int:
     """Emit one classify work line per pending 'ok' paper (idempotent)."""
     coder = f"llm_pass_{pass_n}"
-    rows = conn.execute(_PENDING_CLASSIFY, (coder, prompt_version)).fetchall()
+    rows = _restrict(conn, conn.execute(_PENDING_CLASSIFY, (coder, prompt_version)).fetchall(),
+                     restrict_role)
     n = 0
     with open(out_path, "w") as fh:
         for r in rows:
@@ -88,10 +98,10 @@ ORDER BY c.paper_id
 
 
 def build_rate_work(conn: sqlite3.Connection, pass_n: int, prompt_version: str,
-                    pdf_root: Path, out_path: Path) -> int:
+                    pdf_root: Path, out_path: Path, restrict_role: str | None = None) -> int:
     """Emit one rate work line per classified, still-pending paper (idempotent)."""
     coder = f"llm_pass_{pass_n}"
-    rows = conn.execute(_PENDING_RATE, (coder,)).fetchall()
+    rows = _restrict(conn, conn.execute(_PENDING_RATE, (coder,)).fetchall(), restrict_role)
     n = 0
     with open(out_path, "w") as fh:
         for r in rows:

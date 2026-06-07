@@ -263,15 +263,18 @@ def appraise_extract(ctx):
               help="matching *.work.jsonl (required with --import)")
 @click.option("--pass", "pass_n", type=int, default=1)
 @click.option("--prompt-version", default="classify-v1")
+@click.option("--only-sample", "only_sample", default=None,
+              help="restrict emit to a sample role (e.g. pilot)")
 @click.pass_context
-def appraise_classify(ctx, emit_path, import_path, work_path, pass_n, prompt_version):
+def appraise_classify(ctx, emit_path, import_path, work_path, pass_n, prompt_version, only_sample):
     """Phase 1: classify (emit work file / import answers)."""
     from rrl.db import connect, init_schema
     from rrl.appraise.engine import build_classify_work
     from rrl.appraise.persist import import_classify_answers
     conn = connect(ctx.obj["db"]); init_schema(conn)
     if emit_path:
-        n = build_classify_work(conn, pass_n, prompt_version, Path("pdfs"), Path(emit_path))
+        n = build_classify_work(conn, pass_n, prompt_version, Path("pdfs"), Path(emit_path),
+                                restrict_role=only_sample)
         click.echo(f"emitted {n} classify work items -> {emit_path}")
     elif import_path:
         if not work_path:
@@ -288,15 +291,18 @@ def appraise_classify(ctx, emit_path, import_path, work_path, pass_n, prompt_ver
               help="matching *.work.jsonl (required with --import)")
 @click.option("--pass", "pass_n", type=int, default=1)
 @click.option("--prompt-version", default="rate-v1")
+@click.option("--only-sample", "only_sample", default=None,
+              help="restrict emit to a sample role (e.g. pilot)")
 @click.pass_context
-def appraise_rate(ctx, emit_path, import_path, work_path, pass_n, prompt_version):
+def appraise_rate(ctx, emit_path, import_path, work_path, pass_n, prompt_version, only_sample):
     """Phase 2: rate (emit work file / import answers)."""
     from rrl.db import connect, init_schema
     from rrl.appraise.engine import build_rate_work
     from rrl.appraise.persist import import_rate_answers
     conn = connect(ctx.obj["db"]); init_schema(conn)
     if emit_path:
-        n = build_rate_work(conn, pass_n, prompt_version, Path("pdfs"), Path(emit_path))
+        n = build_rate_work(conn, pass_n, prompt_version, Path("pdfs"), Path(emit_path),
+                            restrict_role=only_sample)
         click.echo(f"emitted {n} rate work items -> {emit_path}")
     elif import_path:
         if not work_path:
@@ -304,6 +310,21 @@ def appraise_rate(ctx, emit_path, import_path, work_path, pass_n, prompt_version
         c = import_rate_answers(conn, Path(work_path), Path(import_path),
                                 model="harness", engine="harness")
         click.echo(str(c))
+
+
+@appraise.command(name="pilot")
+@click.option("--select", "do_select", is_flag=True, help="draw the seeded pilot sample")
+@click.option("--n", type=int, default=25)
+@click.option("--seed", type=int, default=1)
+@click.pass_context
+def appraise_pilot(ctx, do_select, n, seed):
+    """Phase 0: pilot sample management (seeded, append-only)."""
+    from rrl.db import connect, init_schema
+    from rrl.appraise.persist import assign_samples
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    if do_select:
+        chosen = assign_samples(conn, "pilot", n, seed)
+        click.echo(f"pilot sample ({len(chosen)}): {', '.join(chosen)}")
 
 
 @appraise.command(name="status")

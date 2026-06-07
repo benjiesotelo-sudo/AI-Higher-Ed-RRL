@@ -487,3 +487,33 @@ def test_harness_runbook_exists_and_describes_loop():
     from rrl.appraise.prompts import load_template
     rb = load_template("harness_runbook.md")
     assert "work.jsonl" in rb and "answers.jsonl" in rb and "work_id" in rb
+
+
+def test_emit_restricted_to_pilot_sample(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    pdf_root = tmp_path / "pdfs"; (pdf_root / "2023").mkdir(parents=True)
+    for pid in ("a", "b"):
+        _make_pdf(pdf_root / "2023" / f"{pid}.pdf", _EN_PARA)
+        _insert_paper(conn, pid, pdf_filename=f"2023/{pid}.pdf"); set_disposition(conn, pid, "ok")
+    assign_samples(conn, role="pilot", n=1, seed=1)
+    out = tmp_path / "c.work.jsonl"
+    n = build_classify_work(conn, 1, "classify-v1", pdf_root, out, restrict_role="pilot")
+    assert n == 1
+
+
+def test_cli_pilot_select_and_only_sample(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(); (tmp_path / "pdfs" / "2023").mkdir(parents=True)
+    conn = connect(tmp_path / "data" / "rrl.sqlite"); init_schema(conn)
+    for pid in ("a", "b", "c"):
+        _make_pdf(tmp_path / "pdfs" / "2023" / f"{pid}.pdf", _EN_PARA)
+        _insert_paper(conn, pid, pdf_filename=f"2023/{pid}.pdf"); set_disposition(conn, pid, "ok")
+    conn.close()
+    r = CliRunner().invoke(main, ["--db", "data/rrl.sqlite", "appraise", "pilot",
+                                  "--select", "--n", "2", "--seed", "1"])
+    assert r.exit_code == 0, r.output
+    r2 = CliRunner().invoke(main, ["--db", "data/rrl.sqlite", "appraise", "classify",
+                                   "--emit", "p.work.jsonl", "--only-sample", "pilot"])
+    assert r2.exit_code == 0, r2.output
+    lines = (tmp_path / "p.work.jsonl").read_text().strip().splitlines()
+    assert len(lines) == 2
