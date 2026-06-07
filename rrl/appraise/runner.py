@@ -7,10 +7,10 @@ mmat_dispositions are skipped, so the stage is resumable.
 from __future__ import annotations
 
 import sqlite3
-from datetime import datetime, timezone
 from pathlib import Path
 
 from rrl.appraise.pdftext import extract_text
+from rrl.appraise.persist import set_disposition
 
 _IN_SCOPE_SQL = """
 SELECT paper_id, pdf_filename FROM papers
@@ -27,10 +27,6 @@ def in_scope_papers(conn: sqlite3.Connection) -> list[tuple[str, str]]:
             for r in conn.execute(_IN_SCOPE_SQL).fetchall()]
 
 
-def _now() -> str:
-    return datetime.now(timezone.utc).isoformat()
-
-
 def run_extract(conn: sqlite3.Connection, pdf_root: Path) -> dict[str, int]:
     """Extract text + record a disposition for each not-yet-done in-scope paper.
     Returns a {disposition: count} dict for papers processed in THIS run."""
@@ -41,10 +37,6 @@ def run_extract(conn: sqlite3.Connection, pdf_root: Path) -> dict[str, int]:
         if paper_id in done:
             continue
         res = extract_text(pdf_root / pdf_filename)
-        conn.execute(
-            "INSERT INTO mmat_dispositions (paper_id, disposition, detail, created_at) "
-            "VALUES (?, ?, ?, ?)",
-            (paper_id, res.disposition, res.detail, _now()),
-        )
+        set_disposition(conn, paper_id, res.disposition, res.detail)
         counts[res.disposition] = counts.get(res.disposition, 0) + 1
     return counts

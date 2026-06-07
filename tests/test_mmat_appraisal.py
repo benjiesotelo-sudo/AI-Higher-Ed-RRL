@@ -217,3 +217,16 @@ def test_mmat_samples_and_import_log_tables(tmp_path):
     names = {r[0] for r in conn.execute(
         "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
     assert {"mmat_samples", "mmat_import_log"} <= names
+
+
+from rrl.appraise.persist import set_disposition
+
+
+def test_set_disposition_upserts_on_transition(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    conn.execute("INSERT INTO papers (paper_id,title,authors_json,year,first_seen_at,last_updated_at) "
+                 "VALUES ('p1','T','[]',2023,'now','now')")
+    set_disposition(conn, "p1", "ok")
+    set_disposition(conn, "p1", "appraised", "rated")  # must update, not IntegrityError
+    rows = conn.execute("SELECT disposition, detail FROM mmat_dispositions WHERE paper_id='p1'").fetchall()
+    assert len(rows) == 1 and rows[0]["disposition"] == "appraised" and rows[0]["detail"] == "rated"
