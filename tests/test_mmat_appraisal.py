@@ -230,3 +230,21 @@ def test_set_disposition_upserts_on_transition(tmp_path):
     set_disposition(conn, "p1", "appraised", "rated")  # must update, not IntegrityError
     rows = conn.execute("SELECT disposition, detail FROM mmat_dispositions WHERE paper_id='p1'").fetchall()
     assert len(rows) == 1 and rows[0]["disposition"] == "appraised" and rows[0]["detail"] == "rated"
+
+
+from rrl.appraise.persist import reconcile_dispositions
+
+
+def test_reconcile_dispositions_sums_to_inscope(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    for pid in ("a", "b", "c"):
+        conn.execute("INSERT INTO papers (paper_id,title,authors_json,year,included,"
+                     "pdf_status,pdf_filename,first_seen_at,last_updated_at) "
+                     "VALUES (?,?,?,?,?,?,?,?,?)",
+                     (pid, "T", "[]", 2023, 1, "downloaded", f"2023/{pid}.pdf", "now", "now"))
+    set_disposition(conn, "a", "appraised")
+    set_disposition(conn, "b", "not_assessable")
+    set_disposition(conn, "c", "no_text_layer")
+    r = reconcile_dispositions(conn)
+    assert r["balanced"] is True
+    assert r["in_scope"] == 3 and r["dispositioned"] == 3
