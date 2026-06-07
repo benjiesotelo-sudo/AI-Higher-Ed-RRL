@@ -233,3 +233,116 @@ def status(ctx, paper):
     click.echo("search_runs:")
     for r in conn.execute("SELECT adapter, status, finished_at, records_new FROM search_runs ORDER BY started_at DESC").fetchall():
         click.echo(f"  {r['adapter']:<10} {r['status']:<7} {r['finished_at'] or '':<28} new={r['records_new']}")
+
+
+@main.group()
+@click.pass_context
+def appraise(ctx):
+    """MMAT v2018 quality appraisal (LLM-assisted; see docs/.../mmat-appraisal-design.md)."""
+
+
+@appraise.command(name="extract")
+@click.pass_context
+def appraise_extract(ctx):
+    """Phase 0: extract PDF text + record a disposition per in-scope paper."""
+    from rrl.db import connect, init_schema
+    from rrl.appraise.runner import run_extract
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    counts = run_extract(conn, pdf_root=Path("pdfs"))
+    if not counts:
+        click.echo("No new papers to process (all in-scope papers already dispositioned).")
+        return
+    for disp, n in sorted(counts.items()):
+        click.echo(f"{disp}: {n}")
+
+
+@appraise.command(name="classify")
+@click.option("--emit", "emit_path", type=click.Path())
+@click.option("--import", "import_path", type=click.Path(exists=True))
+@click.option("--work", "work_path", type=click.Path(exists=True),
+              help="matching *.work.jsonl (required with --import)")
+@click.option("--pass", "pass_n", type=int, default=1)
+@click.option("--prompt-version", default="classify-v1")
+@click.option("--only-sample", "only_sample", default=None,
+              help="restrict emit to a sample role (e.g. pilot)")
+@click.pass_context
+def appraise_classify(ctx, emit_path, import_path, work_path, pass_n, prompt_version, only_sample):
+    """Phase 1: classify (emit work file / import answers)."""
+    from rrl.db import connect, init_schema
+    from rrl.appraise.engine import build_classify_work
+    from rrl.appraise.persist import import_classify_answers
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    if emit_path:
+        n = build_classify_work(conn, pass_n, prompt_version, Path("pdfs"), Path(emit_path),
+                                restrict_role=only_sample)
+        click.echo(f"emitted {n} classify work items -> {emit_path}")
+    elif import_path:
+        if not work_path:
+            raise click.UsageError("--import requires --work <the matching *.work.jsonl>")
+        c = import_classify_answers(conn, Path(work_path), Path(import_path),
+                                    model="harness", engine="harness")
+        click.echo(str(c))
+
+
+@appraise.command(name="rate")
+@click.option("--emit", "emit_path", type=click.Path())
+@click.option("--import", "import_path", type=click.Path(exists=True))
+@click.option("--work", "work_path", type=click.Path(exists=True),
+              help="matching *.work.jsonl (required with --import)")
+@click.option("--pass", "pass_n", type=int, default=1)
+@click.option("--prompt-version", default="rate-v1")
+@click.option("--only-sample", "only_sample", default=None,
+              help="restrict emit to a sample role (e.g. pilot)")
+@click.pass_context
+def appraise_rate(ctx, emit_path, import_path, work_path, pass_n, prompt_version, only_sample):
+    """Phase 2: rate (emit work file / import answers)."""
+    from rrl.db import connect, init_schema
+    from rrl.appraise.engine import build_rate_work
+    from rrl.appraise.persist import import_rate_answers
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    if emit_path:
+        n = build_rate_work(conn, pass_n, prompt_version, Path("pdfs"), Path(emit_path),
+                            restrict_role=only_sample)
+        click.echo(f"emitted {n} rate work items -> {emit_path}")
+    elif import_path:
+        if not work_path:
+            raise click.UsageError("--import requires --work <the matching *.work.jsonl>")
+        c = import_rate_answers(conn, Path(work_path), Path(import_path),
+                                model="harness", engine="harness")
+        click.echo(str(c))
+
+
+@appraise.command(name="pilot")
+@click.option("--select", "do_select", is_flag=True, help="draw the seeded pilot sample")
+@click.option("--n", type=int, default=25)
+@click.option("--seed", type=int, default=1)
+@click.pass_context
+def appraise_pilot(ctx, do_select, n, seed):
+    """Phase 0: pilot sample management (seeded, append-only)."""
+    from rrl.db import connect, init_schema
+    from rrl.appraise.persist import assign_samples
+    conn = connect(ctx.obj["db"]); init_schema(conn)
+    if do_select:
+        chosen = assign_samples(conn, "pilot", n, seed)
+        click.echo(f"pilot sample ({len(chosen)}): {', '.join(chosen)}")
+
+
+@appraise.command(name="status")
+@click.pass_context
+def appraise_status(ctx):
+    """Show MMAT disposition counts."""
+    from rrl.db import connect, init_schema
+    db = ctx.obj["db"]
+    if not db.exists():
+        click.echo(f"No database at {db}. Run `rrl appraise extract` first.")
+        return
+    conn = connect(db); init_schema(conn)
+    rows = conn.execute(
+        "SELECT disposition, COUNT(*) FROM mmat_dispositions "
+        "GROUP BY disposition ORDER BY 2 DESC"
+    ).fetchall()
+    if not rows:
+        click.echo("No dispositions yet. Run `rrl appraise extract`.")
+        return
+    for r in rows:
+        click.echo(f"{r[0]}: {r[1]}")

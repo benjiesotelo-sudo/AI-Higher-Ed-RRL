@@ -31,3 +31,8 @@ OLD Files/
 # Segregated high-confidence-with-PDF subset for the (future) MMAT appraisal.
 # Copies of copyrighted full-text PDFs — never published.
 MMAT Appraisal Set/
+
+# MMAT engine work files (full copyrighted text + verbatim quotes — never commit)
+*.work.jsonl
+*.answers.jsonl
+*.rejects.jsonl
