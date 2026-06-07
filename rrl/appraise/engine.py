@@ -23,9 +23,33 @@ def normalize_text(s: str) -> str:
     return s.strip()
 
 
+_CITATION = re.compile(r"\([^)]*\d{4}[^)]*\)|\[[0-9][^\]]*\]")
+
+
+def _canonical(s: str) -> str:
+    """Normalized + inline citations stripped + lowercased, for lenient matching."""
+    s = _CITATION.sub("", normalize_text(s))
+    return re.sub(r"\s+", " ", s).strip().lower()
+
+
+def _ordered_subsequence(needle: list, haystack: list) -> bool:
+    it = iter(haystack)
+    return all(w in it for w in needle)
+
+
 def quote_present(quote: str, text: str) -> bool:
-    q = normalize_text(quote)
-    return bool(q) and q in normalize_text(text)
+    """True if the quote is genuinely from the text, tolerating dropped inline
+    citations and minor mid-quote elisions (it need not be byte-exact). Substring
+    after citation-stripping; else an ordered word-subsequence for quotes >= 4 words
+    (a fabricated quote's words will not all appear, in order, in the source)."""
+    q = _canonical(quote)
+    if not q:
+        return False
+    t = _canonical(text)
+    if q in t:
+        return True
+    qw = q.split()
+    return len(qw) >= 4 and _ordered_subsequence(qw, t.split())
 
 
 CRITERIA = {

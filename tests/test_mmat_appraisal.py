@@ -265,6 +265,14 @@ def test_quote_present_handles_linewrap_and_softhyphen():
     assert quote_present("not in the text at all", text) is False
 
 
+def test_quote_present_tolerates_dropped_citation_and_minor_elision():
+    text = "Participants reported that students used AI (Smith, 2020) for writing tasks during the term."
+    # model dropped the inline citation mid-quote -> still a faithful quote
+    assert quote_present("students used AI for writing tasks", text) is True
+    # genuinely fabricated content -> must still fail
+    assert quote_present("students avoided all digital tools entirely", text) is False
+
+
 import json
 
 from rrl.appraise.engine import build_classify_work
