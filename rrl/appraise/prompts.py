@@ -15,20 +15,29 @@ CRITERION_GUIDANCE = {
     "1.5": "Is there coherence between qualitative data sources, collection, analysis, interpretation?",
     "2.1": "Is randomization appropriately performed?",
     "2.2": "Are the groups comparable at baseline?",
-    "2.3": "Are there complete outcome data?",
+    "2.3": "Are there complete outcome data? Apply a fixed team cutoff (per the MMAT manual: agree "
+           "a cutoff and apply it uniformly): rate YES if ≥80% of participants contributed to the "
+           "main outcome (equivalently, dropout/withdrawal ≤20%); rate NO if below that; cant_tell "
+           "if not reported.",
     "2.4": "Are outcome assessors blinded to the intervention provided? NOTE: the assessor may be "
            "the participant (patient-reported outcome / PRO), the provider, or a third party — do "
            "NOT auto-fail a PRO study merely because the participant knows the assignment.",
     "2.5": "Did the participants adhere to the assigned intervention?",
     "3.1": "Are the participants representative of the target population?",
     "3.2": "Are measurements appropriate regarding both the outcome and the exposure/intervention?",
-    "3.3": "Are there complete outcome data?",
+    "3.3": "Are there complete outcome data? Apply a fixed team cutoff (per the MMAT manual: agree "
+           "a cutoff and apply it uniformly): rate YES if ≥80% of participants contributed to the "
+           "main outcome (equivalently, dropout/withdrawal ≤20%); rate NO if below that; cant_tell "
+           "if not reported.",
     "3.4": "Are the confounders accounted for in the design and analysis?",
     "3.5": "During the study period, was the intervention/exposure administered as intended?",
     "4.1": "Is the sampling strategy relevant to address the research question?",
     "4.2": "Is the sample representative of the target population?",
     "4.3": "Are the measurements appropriate?",
-    "4.4": "Is the risk of nonresponse bias low?",
+    "4.4": "Is the risk of nonresponse bias low? Apply a fixed team cutoff: rate YES if the response "
+           "rate is ≥60%, OR the authors show non-respondents do not differ from respondents on the "
+           "key variable(s), OR appropriate statistical compensation (e.g., imputation) is used; "
+           "rate NO if the response rate is low without such mitigation; cant_tell if not reported.",
     "4.5": "Is the statistical analysis appropriate to answer the research question?",
     "5.1": "Is there an adequate rationale for using a mixed-methods design?",
     "5.2": "Are the different components of the study effectively integrated to answer the question?",

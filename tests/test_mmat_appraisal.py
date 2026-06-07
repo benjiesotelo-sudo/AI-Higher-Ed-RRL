@@ -517,3 +517,11 @@ def test_cli_pilot_select_and_only_sample(tmp_path, monkeypatch):
     assert r2.exit_code == 0, r2.output
     lines = (tmp_path / "p.work.jsonl").read_text().strip().splitlines()
     assert len(lines) == 2
+
+
+def test_rate_prompt_carries_locked_thresholds():
+    # complete-outcome-data cutoff (2.3 / 3.3) and nonresponse cutoff (4.4) are
+    # baked in as uniform yardsticks (MMAT manual: agree a cutoff, apply uniformly).
+    assert "80%" in render_rate("rct", ["2.3"], "X", 1)
+    assert "80%" in render_rate("quant_nonrandomized", ["3.3"], "X", 1)
+    assert "60%" in render_rate("quant_descriptive", ["4.4"], "X", 1)
