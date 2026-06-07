@@ -89,6 +89,25 @@ def test_extract_non_english(tmp_path):
     assert res.disposition == "non_english"
 
 
+def test_extract_orders_text_top_to_bottom(tmp_path):
+    # A page whose blocks are stored out of reading order (the lower block is
+    # written to the content stream first) must still extract top-to-bottom, not
+    # in PDF-stream order. This is the multi-column / reading-order repair the
+    # appraiser depends on: methods paragraphs must read in their visual order.
+    p = tmp_path / "out_of_order.pdf"
+    doc = fitz.open()
+    page = doc.new_page()
+    page.insert_textbox(fitz.Rect(72, 600, 520, 740), "ZZBOTTOM section text content here")
+    page.insert_textbox(fitz.Rect(72, 80, 520, 220), "AATOP section text content here")
+    doc.save(str(p))
+    doc.close()
+    res = extract_text(p)
+    top_idx = res.text.find("AATOP")
+    bot_idx = res.text.find("ZZBOTTOM")
+    assert top_idx != -1 and bot_idx != -1
+    assert top_idx < bot_idx
+
+
 from rrl.appraise.runner import in_scope_papers, run_extract
 
 

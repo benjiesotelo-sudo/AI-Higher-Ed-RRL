@@ -46,13 +46,25 @@ def looks_english(text: str) -> bool:
     return (hits / len(words)) >= _EN_MIN_RATIO
 
 
+def _ordered_page_text(page) -> str:
+    """One page's text in reading order.
+
+    get_text("blocks", sort=True) orders blocks top-to-bottom / left-to-right,
+    fixing the across-column scrambling that plain get_text() produces. Stays
+    plain text (no Markdown) so verbatim quotes remain literal substrings of
+    this string downstream. Text blocks only (block_type 0); images skipped.
+    """
+    blocks = page.get_text("blocks", sort=True)
+    return "\n".join(b[4] for b in blocks if b[6] == 0)
+
+
 def extract_text(pdf_path: Path) -> ExtractionResult:
     pdf_path = Path(pdf_path)
     if not pdf_path.exists():
         return ExtractionResult("", 0, "no_text_layer", "file missing")
     try:
         doc = fitz.open(pdf_path)
-        text = "".join(page.get_text() for page in doc)
+        text = "\n".join(_ordered_page_text(page) for page in doc)
         doc.close()
     except Exception as exc:  # corrupt/unreadable PDF — a real case across 2,648 files
         return ExtractionResult("", 0, "no_text_layer", f"open error: {exc}")
