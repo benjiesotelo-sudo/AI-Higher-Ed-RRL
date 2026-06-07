@@ -209,3 +209,11 @@ def test_appraise_extract_idempotent_cli(tmp_path, monkeypatch):
     r2 = runner.invoke(main, ["--db", "data/rrl.sqlite", "appraise", "extract"])
     assert r2.exit_code == 0, r2.output
     assert "No new papers" in r2.output
+
+
+def test_mmat_samples_and_import_log_tables(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite")
+    init_schema(conn)
+    names = {r[0] for r in conn.execute(
+        "SELECT name FROM sqlite_master WHERE type='table'").fetchall()}
+    assert {"mmat_samples", "mmat_import_log"} <= names

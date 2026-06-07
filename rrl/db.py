@@ -154,6 +154,25 @@ CREATE TABLE IF NOT EXISTS mmat_dispositions (
   detail       TEXT,
   created_at   TEXT NOT NULL
 );
+
+CREATE TABLE IF NOT EXISTS mmat_samples (
+  paper_id    TEXT NOT NULL REFERENCES papers(paper_id),
+  role        TEXT NOT NULL,           -- pilot | calibration | validation
+  stratum     TEXT,                    -- design bucket used for stratification
+  rng_seed    INTEGER NOT NULL,
+  assigned_at TEXT NOT NULL,
+  UNIQUE (paper_id, role)
+);
+
+CREATE TABLE IF NOT EXISTS mmat_import_log (
+  id          INTEGER PRIMARY KEY,
+  batch       TEXT,
+  work_id     TEXT,
+  paper_id    TEXT,
+  outcome     TEXT NOT NULL,           -- persisted | flagged | rejected
+  reason      TEXT,
+  created_at  TEXT NOT NULL
+);
 """
 
 
