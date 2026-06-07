@@ -334,3 +334,21 @@ def test_import_classify_reimport_replaces_not_raises(tmp_path):
     import_classify_answers(conn, work, ans, "m", "harness")   # same key, second import
     n = conn.execute("SELECT COUNT(*) FROM mmat_classifications WHERE paper_id='g'").fetchone()[0]
     assert n == 1
+
+
+from rrl.appraise.engine import build_rate_work, CRITERIA
+
+
+def test_build_rate_work_emits_category_criteria_and_skips_not_assessable(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    pdf_root = tmp_path / "pdfs"; (pdf_root / "2023").mkdir(parents=True)
+    _make_pdf(pdf_root / "2023" / "g.pdf", _EN_PARA)
+    _insert_paper(conn, "g", pdf_filename="2023/g.pdf"); set_disposition(conn, "g", "ok")
+    conn.execute("INSERT INTO mmat_classifications (paper_id,coder,mmat_category,prompt_version,"
+                 "model,engine,created_at) VALUES ('g','llm_pass_1','qualitative','classify-v1','m','h','now')")
+    out = tmp_path / "r.work.jsonl"
+    n = build_rate_work(conn, pass_n=1, prompt_version="rate-v1", pdf_root=pdf_root, out_path=out)
+    assert n == 1
+    line = json.loads(out.read_text().splitlines()[0])
+    assert line["task"] == "rate" and line["mmat_category"] == "qualitative"
+    assert line["criteria"] == CRITERIA["qualitative"]

@@ -66,3 +66,45 @@ def build_classify_work(conn: sqlite3.Connection, pass_n: int, prompt_version: s
                 "schema": _CLASSIFY_SCHEMA}) + "\n")
             n += 1
     return n
+
+
+def required_criteria(category: str, mm_quant_family: str | None) -> list[str]:
+    """Criteria the model must rate. For mixed_methods, 5.5 is computed at import."""
+    if category == "mixed_methods":
+        return CRITERIA["qualitative"] + CRITERIA[mm_quant_family] + ["5.1", "5.2", "5.3", "5.4"]
+    return CRITERIA[category]
+
+
+_PENDING_RATE = """
+SELECT c.paper_id, c.mmat_category, c.mm_quant_family, p.pdf_filename
+FROM mmat_classifications c
+JOIN papers p ON p.paper_id=c.paper_id
+JOIN mmat_dispositions d ON d.paper_id=c.paper_id AND d.disposition='ok'
+WHERE c.coder=? AND c.mmat_category!='not_assessable'
+ORDER BY c.paper_id
+"""
+
+
+def build_rate_work(conn: sqlite3.Connection, pass_n: int, prompt_version: str,
+                    pdf_root: Path, out_path: Path) -> int:
+    """Emit one rate work line per classified, still-pending paper (idempotent)."""
+    coder = f"llm_pass_{pass_n}"
+    rows = conn.execute(_PENDING_RATE, (coder,)).fetchall()
+    n = 0
+    with open(out_path, "w") as fh:
+        for r in rows:
+            crits = required_criteria(r["mmat_category"], r["mm_quant_family"])
+            have = {x[0] for x in conn.execute(
+                "SELECT criterion_id FROM mmat_appraisals WHERE paper_id=? AND coder=? "
+                "AND prompt_version=?", (r["paper_id"], coder, prompt_version)).fetchall()}
+            if set(crits) <= have:
+                continue  # already complete -> not pending
+            res = extract_text(Path(pdf_root) / r["pdf_filename"])
+            fh.write(json.dumps({
+                "work_id": work_id(r["paper_id"], "rate", pass_n, prompt_version),
+                "paper_id": r["paper_id"], "task": "rate", "pass": pass_n,
+                "prompt_version": prompt_version, "mmat_category": r["mmat_category"],
+                "mm_quant_family": r["mm_quant_family"], "criteria": crits,
+                "text": res.text}) + "\n")
+            n += 1
+    return n
