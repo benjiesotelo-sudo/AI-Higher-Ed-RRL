@@ -263,3 +263,24 @@ def test_quote_present_handles_linewrap_and_softhyphen():
     text = "the educa-\ntion of stu­dents in higher   education"
     assert quote_present("education of students", text) is True
     assert quote_present("not in the text at all", text) is False
+
+
+import json
+
+from rrl.appraise.engine import build_classify_work
+
+
+def test_build_classify_work_selects_ok_papers_and_embeds_workid(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    pdf_root = tmp_path / "pdfs"; (pdf_root / "2023").mkdir(parents=True)
+    _make_pdf(pdf_root / "2023" / "good.pdf", _EN_PARA)
+    _insert_paper(conn, "good", pdf_filename="2023/good.pdf")
+    set_disposition(conn, "good", "ok")
+    out = tmp_path / "c.work.jsonl"
+    n = build_classify_work(conn, pass_n=1, prompt_version="classify-v1",
+                            pdf_root=pdf_root, out_path=out)
+    assert n == 1
+    line = json.loads(out.read_text().splitlines()[0])
+    assert line["paper_id"] == "good" and line["task"] == "classify"
+    assert line["work_id"] == work_id("good", "classify", 1, "classify-v1")
+    assert "higher education" in line["text"] and "schema" in line
