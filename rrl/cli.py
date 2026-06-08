@@ -265,8 +265,9 @@ def appraise_extract(ctx):
 @click.option("--prompt-version", default="classify-v1")
 @click.option("--only-sample", "only_sample", default=None,
               help="restrict emit to a sample role (e.g. pilot)")
+@click.option("--model", default="harness", help="model id recorded on imported rows (provenance)")
 @click.pass_context
-def appraise_classify(ctx, emit_path, import_path, work_path, pass_n, prompt_version, only_sample):
+def appraise_classify(ctx, emit_path, import_path, work_path, pass_n, prompt_version, only_sample, model):
     """Phase 1: classify (emit work file / import answers)."""
     from rrl.db import connect, init_schema
     from rrl.appraise.engine import build_classify_work
@@ -280,7 +281,7 @@ def appraise_classify(ctx, emit_path, import_path, work_path, pass_n, prompt_ver
         if not work_path:
             raise click.UsageError("--import requires --work <the matching *.work.jsonl>")
         c = import_classify_answers(conn, Path(work_path), Path(import_path),
-                                    model="harness", engine="harness")
+                                    model=model, engine="harness")
         click.echo(str(c))
 
 
@@ -293,8 +294,9 @@ def appraise_classify(ctx, emit_path, import_path, work_path, pass_n, prompt_ver
 @click.option("--prompt-version", default="rate-v1")
 @click.option("--only-sample", "only_sample", default=None,
               help="restrict emit to a sample role (e.g. pilot)")
+@click.option("--model", default="harness", help="model id recorded on imported rows (provenance)")
 @click.pass_context
-def appraise_rate(ctx, emit_path, import_path, work_path, pass_n, prompt_version, only_sample):
+def appraise_rate(ctx, emit_path, import_path, work_path, pass_n, prompt_version, only_sample, model):
     """Phase 2: rate (emit work file / import answers)."""
     from rrl.db import connect, init_schema
     from rrl.appraise.engine import build_rate_work
@@ -308,7 +310,7 @@ def appraise_rate(ctx, emit_path, import_path, work_path, pass_n, prompt_version
         if not work_path:
             raise click.UsageError("--import requires --work <the matching *.work.jsonl>")
         c = import_rate_answers(conn, Path(work_path), Path(import_path),
-                                model="harness", engine="harness")
+                                model=model, engine="harness")
         click.echo(str(c))
 
 
@@ -316,15 +318,17 @@ def appraise_rate(ctx, emit_path, import_path, work_path, pass_n, prompt_version
 @click.option("--select", "do_select", is_flag=True, help="draw the seeded pilot sample")
 @click.option("--n", type=int, default=25)
 @click.option("--seed", type=int, default=1)
+@click.option("--role", default="pilot")
+@click.option("--tier", default=None, help="restrict the draw to a quality_tier (records the stratum)")
 @click.pass_context
-def appraise_pilot(ctx, do_select, n, seed):
+def appraise_pilot(ctx, do_select, n, seed, role, tier):
     """Phase 0: pilot sample management (seeded, append-only)."""
     from rrl.db import connect, init_schema
     from rrl.appraise.persist import assign_samples
     conn = connect(ctx.obj["db"]); init_schema(conn)
     if do_select:
-        chosen = assign_samples(conn, "pilot", n, seed)
-        click.echo(f"pilot sample ({len(chosen)}): {', '.join(chosen)}")
+        chosen = assign_samples(conn, role, n, seed, tier=tier)
+        click.echo(f"{role} sample ({len(chosen)})")
 
 
 @appraise.command(name="status")

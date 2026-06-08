@@ -159,19 +159,25 @@ def status_counts(conn: sqlite3.Connection) -> dict:
             "reconciliation": reconcile_dispositions(conn)}
 
 
-def assign_samples(conn: sqlite3.Connection, role: str, n: int, seed: int) -> list[str]:
-    """Seeded, append-only sample membership; roles are mutually exclusive."""
+def assign_samples(conn: sqlite3.Connection, role: str, n: int, seed: int,
+                   tier: str | None = None) -> list[str]:
+    """Seeded, append-only sample membership; roles are mutually exclusive. When
+    `tier` is given, draw only from that quality_tier and record it as the stratum
+    (call once per stratum, topping `n` up, to build a stratified sample)."""
     existing = [r[0] for r in conn.execute(
         "SELECT paper_id FROM mmat_samples WHERE role=? ORDER BY paper_id", (role,)).fetchall()]
-    if existing:
+    if len(existing) >= n:
         return existing
     taken = {r[0] for r in conn.execute("SELECT paper_id FROM mmat_samples").fetchall()}
+    tier_sql = " AND p.quality_tier=?" if tier else ""
+    params = (tier,) if tier else ()
     pool = [r[0] for r in conn.execute(
-        f"SELECT paper_id FROM mmat_dispositions WHERE disposition='ok' "
-        f"AND paper_id IN ({_IN_SCOPE}) ORDER BY paper_id").fetchall() if r[0] not in taken]
+        f"SELECT d.paper_id FROM mmat_dispositions d JOIN papers p ON p.paper_id=d.paper_id "
+        f"WHERE d.disposition='ok' AND d.paper_id IN ({_IN_SCOPE}){tier_sql} "
+        f"ORDER BY d.paper_id", params).fetchall() if r[0] not in taken]
     random.Random(seed).shuffle(pool)
-    chosen = sorted(pool[:n])
+    chosen = sorted(pool[:n - len(existing)])      # top up to n; existing membership is preserved
     for pid in chosen:
         conn.execute("INSERT INTO mmat_samples (paper_id,role,stratum,rng_seed,assigned_at) "
-                     "VALUES (?,?,?,?,?)", (pid, role, None, seed, _now()))
-    return chosen
+                     "VALUES (?,?,?,?,?)", (pid, role, tier, seed, _now()))
+    return sorted(existing + chosen)

@@ -441,6 +441,41 @@ def test_assign_samples_deterministic_and_disjoint(tmp_path):
     assert assign_samples(conn, role="pilot", n=5, seed=42) == pilot
 
 
+def test_assign_samples_tops_up_to_n_preserving_existing(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    for i in range(30):
+        pid = f"p{i:02d}"
+        conn.execute("INSERT INTO papers (paper_id,title,authors_json,year,included,pdf_status,"
+                     "pdf_filename,first_seen_at,last_updated_at) VALUES (?,?,?,?,?,?,?,?,?)",
+                     (pid, "T", "[]", 2023, 1, "downloaded", f"2023/{pid}.pdf", "now", "now"))
+        set_disposition(conn, pid, "ok")
+    first = assign_samples(conn, role="pilot", n=5, seed=42)
+    assert len(first) == 5
+    grown = assign_samples(conn, role="pilot", n=8, seed=42)
+    assert len(grown) == 8 and set(first) <= set(grown)        # superset: originals retained
+    assert assign_samples(conn, role="pilot", n=8, seed=42) == grown  # idempotent at n
+
+
+def test_assign_samples_stratifies_by_tier(tmp_path):
+    conn = connect(tmp_path / "rrl.sqlite"); init_schema(conn)
+    for i in range(20):
+        pid = f"p{i:02d}"
+        tier = "high_confidence" if i < 10 else "review_needed"
+        conn.execute("INSERT INTO papers (paper_id,title,authors_json,year,included,pdf_status,"
+                     "pdf_filename,quality_tier,first_seen_at,last_updated_at) "
+                     "VALUES (?,?,?,?,?,?,?,?,?,?)",
+                     (pid, "T", "[]", 2023, 1, "downloaded", f"2023/{pid}.pdf", tier, "now", "now"))
+        set_disposition(conn, pid, "ok")
+    hc = assign_samples(conn, role="strat", n=3, seed=1, tier="high_confidence")
+    both = assign_samples(conn, role="strat", n=6, seed=1, tier="review_needed")  # top up to 6
+    assert len(hc) == 3 and len(both) == 6 and set(hc) <= set(both)
+    rn_added = set(both) - set(hc)
+    qt = dict(conn.execute("SELECT paper_id, quality_tier FROM papers").fetchall())
+    assert all(qt[pid] == "review_needed" for pid in rn_added)
+    strata = dict(conn.execute("SELECT paper_id, stratum FROM mmat_samples WHERE role='strat'").fetchall())
+    assert strata[hc[0]] == "high_confidence" and strata[next(iter(rn_added))] == "review_needed"
+
+
 def test_cli_classify_emit_import_roundtrip(tmp_path, monkeypatch):
     monkeypatch.chdir(tmp_path)
     (tmp_path / "data").mkdir(); (tmp_path / "pdfs" / "2023").mkdir(parents=True)
@@ -460,6 +495,33 @@ def test_cli_classify_emit_import_roundtrip(tmp_path, monkeypatch):
     conn = connect(tmp_path / "data" / "rrl.sqlite")
     assert conn.execute("SELECT mmat_category FROM mmat_classifications WHERE paper_id='g'"
                         ).fetchone()["mmat_category"] == "qualitative"
+
+
+def test_cli_import_records_model_provenance(tmp_path, monkeypatch):
+    monkeypatch.chdir(tmp_path)
+    (tmp_path / "data").mkdir(); (tmp_path / "pdfs" / "2023").mkdir(parents=True)
+    _make_pdf(tmp_path / "pdfs" / "2023" / "g.pdf", _EN_PARA)
+    conn = connect(tmp_path / "data" / "rrl.sqlite"); init_schema(conn)
+    _insert_paper(conn, "g", pdf_filename="2023/g.pdf"); set_disposition(conn, "g", "ok"); conn.close()
+    db = ["--db", "data/rrl.sqlite", "appraise"]
+    haiku = "claude-haiku-4-5-20251001"
+    assert CliRunner().invoke(main, db + ["classify", "--emit", "c.work.jsonl", "--pass", "1"]).exit_code == 0
+    cw = json.loads((tmp_path / "c.work.jsonl").read_text().splitlines()[0])
+    (tmp_path / "c.answers.jsonl").write_text(json.dumps({"work_id": cw["work_id"],
+        "bucket": "quant_descriptive", "s1": "yes", "s2": "yes", "mm_quant_family": None,
+        "rationale": "r", "source_quote": "higher education", "confidence": 0.9}) + "\n")
+    assert CliRunner().invoke(main, db + ["classify", "--import", "c.answers.jsonl",
+        "--work", "c.work.jsonl", "--model", haiku]).exit_code == 0
+    assert CliRunner().invoke(main, db + ["rate", "--emit", "r.work.jsonl", "--pass", "1"]).exit_code == 0
+    rw = json.loads((tmp_path / "r.work.jsonl").read_text().splitlines()[0])
+    (tmp_path / "r.answers.jsonl").write_text("\n".join(json.dumps({"work_id": rw["work_id"],
+        "criterion_id": c, "rating": "yes", "rationale": "r", "source_quote": "higher education",
+        "confidence": 0.9}) for c in rw["criteria"]) + "\n")
+    assert CliRunner().invoke(main, db + ["rate", "--import", "r.answers.jsonl",
+        "--work", "r.work.jsonl", "--model", haiku]).exit_code == 0
+    conn = connect(tmp_path / "data" / "rrl.sqlite")
+    assert conn.execute("SELECT DISTINCT model FROM mmat_classifications").fetchone()[0] == haiku
+    assert conn.execute("SELECT DISTINCT model FROM mmat_appraisals").fetchone()[0] == haiku
 
 
 import subprocess
