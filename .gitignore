@@ -37,4 +37,5 @@ MMAT Appraisal Set/
 *.answers.jsonl
 *.rejects.jsonl
 MMAT_Dean_Review/
+MMAT_*.zip
 work_parts/
